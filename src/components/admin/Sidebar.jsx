@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Users, Settings, LogOut, ArrowLeft } from 'lucide-react';
+import { Home, Users, UserCheck, Settings, LogOut, ArrowLeft, FileText } from 'lucide-react';
 import logoDomba from '../../assets/icon/logo_domba.png';
 
 const Sidebar = ({ activeItem, isMobileMenuOpen, setIsMobileMenuOpen }) => {
@@ -28,6 +28,20 @@ const Sidebar = ({ activeItem, isMobileMenuOpen, setIsMobileMenuOpen }) => {
             icon: Users,
             path: '/admin/management',
             superAdminOnly: true // Hanya untuk Super Admin
+        },
+        {
+            id: 'peternak',
+            label: 'Kelola Peternak',
+            icon: UserCheck,
+            path: '/admin/peternak'
+            // Bisa diakses Super Admin dan Admin
+        },
+        {
+            id: 'laporan',
+            label: 'Laporan Peternak',
+            icon: FileText,
+            path: '/admin/laporan'
+            // Bisa diakses Super Admin dan Admin
         },
         {
             id: 'settings',

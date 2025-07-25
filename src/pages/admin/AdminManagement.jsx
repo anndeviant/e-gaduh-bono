@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
-import DataTable from '../../components/admin/DataTable';
+import ResponsiveTable from '../../components/common/ResponsiveTable';
 import Modal from '../../components/admin/Modal';
-import { Plus, Search } from 'lucide-react';
+import SearchableDropdown from '../../components/common/SearchableDropdown';
+import { Plus } from 'lucide-react';
 
 const AdminManagement = () => {
     const navigate = useNavigate();
@@ -12,7 +13,7 @@ const AdminManagement = () => {
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingAdmin, setEditingAdmin] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedAdminFilter, setSelectedAdminFilter] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
@@ -44,25 +45,14 @@ const AdminManagement = () => {
                 },
                 {
                     id: 2,
-                    username: 'pengelola1',
+                    username: 'admin1',
                     name: 'Budi Santoso',
                     email: 'budi@desabono.com',
-                    role: 'Pengelola',
+                    role: 'Admin',
                     status: 'active',
                     createdAt: '2025-01-10',
                     lastLogin: '2025-01-15 14:20',
                     generatedPassword: 'Bx9#mK8$pQ2wR7!'
-                },
-                {
-                    id: 3,
-                    username: 'pengelola2',
-                    name: 'Siti Aminah',
-                    email: 'siti@desabono.com',
-                    role: 'Pengelola',
-                    status: 'inactive',
-                    createdAt: '2025-01-08',
-                    lastLogin: '2025-01-12 09:15',
-                    generatedPassword: 'K5@nL3#vT9$uE1!'
                 }
             ]);
             setLoading(false);
@@ -114,11 +104,56 @@ const AdminManagement = () => {
         setEditingAdmin(null);
     };
 
-    const filteredAdmins = admins.filter(admin =>
-        admin.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        admin.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        admin.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredAdmins = selectedAdminFilter
+        ? admins.filter(admin => admin.id.toString() === selectedAdminFilter)
+        : admins;
+
+    // Prepare options for SearchableDropdown
+    const adminOptions = admins.map(admin => ({
+        value: admin.id.toString(),
+        label: admin.name,
+        subtitle: `${admin.role} • ${admin.email}`,
+    }));
+
+    const defaultAdminOption = {
+        value: '',
+        label: 'Tampilkan Semua Admin',
+        subtitle: `${admins.length} admin total`
+    };
+
+    // Define table columns
+    const adminColumns = [
+        {
+            key: 'admin',
+            header: 'Admin',
+            minWidth: '250px',
+            render: (admin) => admin // Will be handled by ResponsiveTable
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            accessor: 'status',
+            minWidth: '100px'
+        },
+        {
+            key: 'password',
+            header: 'Password',
+            accessor: 'password',
+            minWidth: '180px'
+        },
+        {
+            key: 'lastLogin',
+            header: 'Login Terakhir',
+            accessor: 'lastLogin',
+            minWidth: '150px'
+        },
+        {
+            key: 'createdAt',
+            header: 'Dibuat',
+            accessor: 'createdAt',
+            minWidth: '120px'
+        }
+    ];
 
     if (loading) {
         return (
@@ -158,23 +193,28 @@ const AdminManagement = () => {
                         <div className="mb-6 sm:mb-8">
                             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Kelola Admin</h1>
                             <p className="text-gray-600 mt-2">
-                                Kelola akun admin dan pengelola sistem e-Gaduh Bono
+                                Kelola akun Super Admin dan Admin sistem e-Gaduh Bono
                             </p>
                         </div>
 
                         {/* Actions Bar */}
                         <div className="bg-white rounded-lg shadow mb-4 sm:mb-6 p-4 sm:p-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                <div className="relative flex-1 max-w-md w-full sm:w-auto">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Cari admin..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="block w-full pl-9 sm:pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                                <div className="flex-1 w-full sm:w-auto">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Filter Admin
+                                    </label>
+                                    <SearchableDropdown
+                                        options={adminOptions}
+                                        value={selectedAdminFilter}
+                                        onChange={setSelectedAdminFilter}
+                                        placeholder="Pilih admin..."
+                                        defaultOption={defaultAdminOption}
+                                        searchPlaceholder="Cari nama atau email admin..."
+                                        displayKey="label"
+                                        valueKey="value"
+                                        searchKeys={['label', 'subtitle']}
+                                        noResultsText="Tidak ada admin ditemukan"
                                     />
                                 </div>
                                 <button
@@ -188,13 +228,13 @@ const AdminManagement = () => {
                         </div>
 
                         {/* Data Table */}
-                        <div className="bg-white rounded-lg shadow">
-                            <DataTable
-                                admins={filteredAdmins}
-                                onEdit={handleEditAdmin}
-                                onDelete={handleDeleteAdmin}
-                            />
-                        </div>
+                        <ResponsiveTable
+                            data={filteredAdmins}
+                            columns={adminColumns}
+                            onEdit={handleEditAdmin}
+                            onDelete={handleDeleteAdmin}
+                            showPasswordToggle={true}
+                        />
                     </div>
                 </main>
             </div>

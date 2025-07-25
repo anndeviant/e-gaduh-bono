@@ -8,7 +8,7 @@ const Modal = ({ admin, onSave, onCancel }) => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'Pengelola',
+    role: 'Admin',
     status: 'active'
   });
   const [errors, setErrors] = useState({});
@@ -25,7 +25,7 @@ const Modal = ({ admin, onSave, onCancel }) => {
         email: admin.email || '',
         password: '',
         confirmPassword: '',
-        role: admin.role || 'Pengelola',
+        role: admin.role || 'Admin',
         status: admin.status || 'active'
       });
     }
@@ -336,7 +336,7 @@ const Modal = ({ admin, onSave, onCancel }) => {
                   onChange={handleChange}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
                 >
-                  <option value="Pengelola">Pengelola</option>
+                  <option value="Admin">Admin</option>
                   <option value="Super Admin">Super Admin</option>
                 </select>
               </div>

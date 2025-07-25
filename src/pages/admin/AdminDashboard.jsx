@@ -113,7 +113,7 @@ const AdminDashboard = () => {
                         <div className="mb-8">
                             <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
                             <p className="text-gray-600 mt-2">
-                                Selamat datang di sistem pengelolaan e-Gaduh Bono
+                                Selamat datang di sistem admin e-Gaduh Bono
                             </p>
                         </div>
 
@@ -137,11 +137,11 @@ const AdminDashboard = () => {
                                         </button>
                                     )}
                                     <button
-                                        className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors opacity-50 cursor-not-allowed"
-                                        disabled
+                                        onClick={() => navigate('/admin/peternak')}
+                                        className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
                                     >
                                         <div className="font-medium text-gray-900">Kelola Peternak</div>
-                                        <div className="text-sm text-gray-600">Segera hadir</div>
+                                        <div className="text-sm text-gray-600">Tambah, edit, atau lihat data peternak</div>
                                     </button>
                                     <button
                                         className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors opacity-50 cursor-not-allowed"

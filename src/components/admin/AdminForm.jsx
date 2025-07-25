@@ -8,7 +8,7 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
         email: '',
         password: '',
         confirmPassword: '',
-        role: 'Pengelola',
+        role: 'Admin',
         status: 'active'
     });
     const [errors, setErrors] = useState({});
@@ -22,7 +22,7 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                 email: admin.email || '',
                 password: '',
                 confirmPassword: '',
-                role: admin.role || 'Pengelola',
+                role: admin.role || 'Admin',
                 status: admin.status || 'active'
             });
         }
@@ -132,8 +132,8 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                                     value={formData.name}
                                     onChange={handleChange}
                                     className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.name
-                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                            : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
                                         }`}
                                     placeholder="Masukkan nama lengkap"
                                 />
@@ -156,8 +156,8 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                                     value={formData.username}
                                     onChange={handleChange}
                                     className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.username
-                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                            : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
                                         }`}
                                     placeholder="Masukkan username"
                                 />
@@ -180,8 +180,8 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                                     value={formData.email}
                                     onChange={handleChange}
                                     className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.email
-                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                            : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
                                         }`}
                                     placeholder="Masukkan email"
                                 />
@@ -204,8 +204,8 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                                     value={formData.password}
                                     onChange={handleChange}
                                     className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.password
-                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                            : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
                                         }`}
                                     placeholder={admin ? "Kosongkan jika tidak diubah" : "Masukkan password"}
                                 />
@@ -229,8 +229,8 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                                         value={formData.confirmPassword}
                                         onChange={handleChange}
                                         className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.confirmPassword
-                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                            ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                            : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
                                             }`}
                                         placeholder="Konfirmasi password"
                                     />
@@ -254,7 +254,7 @@ const AdminForm = ({ admin, onSave, onCancel }) => {
                                     onChange={handleChange}
                                     className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
                                 >
-                                    <option value="Pengelola">Pengelola</option>
+                                    <option value="Admin">Admin</option>
                                     <option value="Super Admin">Super Admin</option>
                                 </select>
                             </div>

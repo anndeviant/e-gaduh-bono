@@ -38,17 +38,10 @@ const LoginPage = () => {
                 },
                 {
                     id: 2,
-                    username: 'pengelola1',
+                    username: 'admin1',
                     password: 'Bx9#mK8$pQ2wR7!',
                     name: 'Budi Santoso',
-                    role: 'Pengelola'
-                },
-                {
-                    id: 3,
-                    username: 'pengelola2',
-                    password: 'K5@nL3#vT9$uE1!',
-                    name: 'Siti Aminah',
-                    role: 'Pengelola'
+                    role: 'Admin'
                 }
             ];
 
@@ -97,10 +90,10 @@ const LoginPage = () => {
                         />
                     </div>
                     <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Login Pengelola
+                        Login Admin
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
-                        Masuk untuk mengakses dashboard pengelola e-Gaduh Bono
+                        Masuk untuk mengakses dashboard admin e-Gaduh Bono
                     </p>
                 </div>
 
@@ -178,8 +171,8 @@ const LoginPage = () => {
                                 <p>Username: <span className="font-mono">admin</span> | Password: <span className="font-mono">admin123</span></p>
                             </div>
                             <div>
-                                <p><strong>Pengelola:</strong></p>
-                                <p>Username: <span className="font-mono">pengelola1</span> | Password: <span className="font-mono">Bx9#mK8$pQ2wR7!</span></p>
+                                <p><strong>Admin:</strong></p>
+                                <p>Username: <span className="font-mono">admin1</span> | Password: <span className="font-mono">Bx9#mK8$pQ2wR7!</span></p>
                             </div>
                         </div>
                     </div>
