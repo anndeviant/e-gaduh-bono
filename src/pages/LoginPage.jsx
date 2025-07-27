@@ -43,7 +43,7 @@ const LoginPage = () => {
                 // Redirect ke dashboard
                 navigate('/admin/dashboard');
             } else {
-                setError('Username atau password salah');
+                setError('Email atau password salah');
             }
         } catch (error) {
             setError(error.message || 'Terjadi kesalahan. Silakan coba lagi.');
@@ -67,33 +67,30 @@ const LoginPage = () => {
                 <ArrowLeft className="h-5 w-5 text-gray-600 hover:text-gray-800" />
             </button>
 
-            <div className="max-w-md w-full space-y-8">
+            <div className="max-w-md w-full space-y-4">
                 <div>
-                    <div className="flex justify-center">
+                    <div className="flex justify-center mb-4">
                         <img
                             src={logoDomba}
                             alt="e-Gaduh Bono"
-                            className="h-16 w-16"
+                            className="h-20 w-20"
                             onError={(e) => {
                                 e.target.style.display = 'none';
                             }}
                         />
                     </div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-green-700">
-                        e-Gaduh Bono
-                    </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600" style={{ marginBottom: '2px' }}>
-                        Sistem Gaduh Digital
-                    </p>
-                    <h3 className="mt-4 text-center text-xl font-bold text-gray-900">
+                    <h3 className="text-center text-2xl font-bold text-gray-900 mb-2">
                         Login Admin
                     </h3>
-                    <p className="mt-2 text-center text-sm text-gray-600">
+                    <h2 className="text-center text-3xl font-extrabold text-green-700 mb-2">
+                        e-Gaduh Bono
+                    </h2>
+                    <p className="text-center text-sm text-gray-600">
                         Masuk untuk mengakses dashboard admin
                     </p>
                 </div>
 
-                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                <form className="mt-2 space-y-6" onSubmit={handleSubmit}>
                     <div className="space-y-4">
                         {/* Username/Email Field */}
                         <div>

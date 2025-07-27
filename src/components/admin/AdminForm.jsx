@@ -105,7 +105,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                             name="fullName"
                             value={formData.fullName}
                             onChange={handleChange}
-                            className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.fullName ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
+                            className={`block w-full pl-10 pr-3 py-1.5 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.fullName ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
                             placeholder="Masukkan nama lengkap"
                         />
                     </div>
@@ -123,7 +123,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                 name="email"
                                 value={formData.email}
                                 onChange={handleChange}
-                                className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
+                                className={`block w-full pl-10 pr-3 py-1.5 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
                                 placeholder="Masukkan email"
                             />
                         </div>
@@ -141,7 +141,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                             valueKey="value"
                             searchKeys={['label', 'subtitle']}
                             noResultsText="Role tidak ditemukan"
-                            disabled={currentUserRole !== 'Super Admin'}
+                            disabled={true}
                         />
                         {errors.role && <p className="mt-1 text-sm text-red-600">{errors.role}</p>}
                     </div>
@@ -158,7 +158,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                 name="password"
                                 value={formData.password}
                                 onChange={handleChange}
-                                className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
+                                className={`block w-full pl-10 pr-3 py-1.5 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
                                 placeholder={admin ? "Kosongkan jika tidak diubah" : "Masukkan password"}
                             />
                         </div>
@@ -174,7 +174,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                     name="confirmPassword"
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
-                                    className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.confirmPassword ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
+                                    className={`block w-full pl-10 pr-3 py-1.5 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.confirmPassword ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
                                     placeholder="Konfirmasi password"
                                 />
                             </div>

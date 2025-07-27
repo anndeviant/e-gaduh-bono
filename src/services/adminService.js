@@ -9,7 +9,6 @@ import {
   query,
   where,
 } from "firebase/firestore";
-import { deleteUser } from "firebase/auth";
 import { db } from "../firebase/config";
 
 const usersCollection = collection(db, "users");
@@ -83,11 +82,34 @@ const deleteAdmin = async (id) => {
   // Consider implementing a more robust deletion strategy
 };
 
+// Get admin by email (untuk login collection-based)
+const getAdminByEmail = async (email) => {
+  try {
+    const q = query(
+      usersCollection,
+      where("email", "==", email),
+      where("role", "==", "Admin")
+    );
+    const snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    const adminDoc = snapshot.docs[0];
+    return { id: adminDoc.id, ...adminDoc.data() };
+  } catch (error) {
+    console.error("Error getting admin by email:", error);
+    throw error;
+  }
+};
+
 const adminService = {
   getAdmins,
   addAdmin,
   updateAdmin,
   deleteAdmin,
+  getAdminByEmail,
 };
 
 export default adminService;

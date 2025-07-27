@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
 import StatsCard from '../../components/admin/StatsCard';
+import LogoutModal from '../../components/admin/LogoutModal';
+import { useLogoutModal } from '../../hooks/useLogoutModal';
 import { Users, Heart, BarChart3, TrendingUp } from 'lucide-react';
 
 const AdminDashboard = () => {
@@ -10,6 +12,13 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const {
+        isLogoutModalOpen,
+        userToLogout,
+        openLogoutModal,
+        closeLogoutModal,
+        confirmLogout
+    } = useLogoutModal();
     const [stats, setStats] = useState({
         totalPeternak: 0,
         totalTernak: 0,
@@ -82,6 +91,7 @@ const AdminDashboard = () => {
                     activeItem="dashboard"
                     isMobileMenuOpen={isMobileMenuOpen}
                     setIsMobileMenuOpen={setIsMobileMenuOpen}
+                    onLogout={openLogoutModal}
                 />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
@@ -102,6 +112,7 @@ const AdminDashboard = () => {
                 activeItem="dashboard"
                 isMobileMenuOpen={isMobileMenuOpen}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
+                onLogout={openLogoutModal}
             />
             <div className="flex-1 flex flex-col min-w-0">
                 <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
@@ -202,6 +213,14 @@ const AdminDashboard = () => {
                     </div>
                 </main>
             </div>
+
+            {/* Logout Modal */}
+            <LogoutModal
+                isOpen={isLogoutModalOpen}
+                onClose={closeLogoutModal}
+                onConfirm={confirmLogout}
+                userName={userToLogout?.fullName}
+            />
         </div>
     );
 };

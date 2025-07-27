@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Home, Users, UserCheck, Settings, LogOut, ArrowLeft, FileText } from 'lucide-react';
 import logoDomba from '../../assets/icon/logo_domba.png';
 
-const Sidebar = ({ activeItem, isMobileMenuOpen, setIsMobileMenuOpen }) => {
+const Sidebar = ({ activeItem, isMobileMenuOpen, setIsMobileMenuOpen, onLogout }) => {
     const navigate = useNavigate();
     const [currentUser, setCurrentUser] = useState(null);
 
@@ -66,10 +66,8 @@ const Sidebar = ({ activeItem, isMobileMenuOpen, setIsMobileMenuOpen }) => {
     };
 
     const handleLogout = () => {
-        if (window.confirm('Apakah Anda yakin ingin keluar?')) {
-            localStorage.removeItem('adminToken');
-            localStorage.removeItem('adminUser');
-            navigate('/');
+        if (onLogout) {
+            onLogout(currentUser);
         }
     };
 

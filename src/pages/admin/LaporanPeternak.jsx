@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
+import LogoutModal from '../../components/admin/LogoutModal';
+import { useLogoutModal } from '../../hooks/useLogoutModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import LaporanTable from '../../components/admin/LaporanTable';
 import LaporanTriwulanForm from '../../components/admin/LaporanTriwulanForm';
@@ -26,6 +28,15 @@ const LaporanPeternak = () => {
     const [viewMode, setViewMode] = useState('peternak'); // 'peternak', 'laporan', 'add', 'edit'
     const [editingLaporan, setEditingLaporan] = useState(null);
     const [deletingLaporan, setDeletingLaporan] = useState(null);
+
+    // Logout modal hook
+    const {
+        isLogoutModalOpen,
+        userToLogout,
+        openLogoutModal,
+        closeLogoutModal,
+        confirmLogout
+    } = useLogoutModal();
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
@@ -355,6 +366,7 @@ const LaporanPeternak = () => {
                     activeItem="laporan"
                     isMobileMenuOpen={isMobileMenuOpen}
                     setIsMobileMenuOpen={setIsMobileMenuOpen}
+                    onLogout={openLogoutModal}
                 />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
@@ -375,6 +387,7 @@ const LaporanPeternak = () => {
                 activeItem="laporan"
                 isMobileMenuOpen={isMobileMenuOpen}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
+                onLogout={openLogoutModal}
             />
             <div className="flex-1 flex flex-col min-w-0">
                 <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
@@ -729,6 +742,14 @@ const LaporanPeternak = () => {
                     confirmText="Hapus Laporan"
                 />
             )}
+
+            {/* Logout Modal */}
+            <LogoutModal
+                isOpen={isLogoutModalOpen}
+                onClose={closeLogoutModal}
+                onConfirm={confirmLogout}
+                userName={userToLogout?.fullName}
+            />
         </div>
     );
 };

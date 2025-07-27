@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
+import LogoutModal from '../../components/admin/LogoutModal';
+import { useLogoutModal } from '../../hooks/useLogoutModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import { Plus, User, ChevronDown, ChevronUp, Edit, Trash2, Mail, MapPin, Calendar, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
@@ -18,6 +20,15 @@ const PeternakManagement = () => {
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [expandedRows, setExpandedRows] = useState({});
+
+    // Logout modal hook
+    const {
+        isLogoutModalOpen,
+        userToLogout,
+        openLogoutModal,
+        closeLogoutModal,
+        confirmLogout
+    } = useLogoutModal();
 
     useEffect(() => {
         const user = localStorage.getItem('adminUser');
@@ -165,7 +176,7 @@ const PeternakManagement = () => {
     if (loading) {
         return (
             <div className="h-screen w-full flex overflow-hidden bg-gray-100">
-                <Sidebar activeItem="peternak" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+                <Sidebar activeItem="peternak" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} onLogout={openLogoutModal} />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
                     <div className="flex-1 flex items-center justify-center">
@@ -181,7 +192,7 @@ const PeternakManagement = () => {
 
     return (
         <div className="h-screen w-full flex overflow-hidden bg-gray-100">
-            <Sidebar activeItem="peternak" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+            <Sidebar activeItem="peternak" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} onLogout={openLogoutModal} />
             <div className="flex-1 flex flex-col min-w-0">
                 <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
@@ -376,6 +387,14 @@ const PeternakManagement = () => {
                     loading={deleteLoading}
                 />
             )}
+
+            {/* Logout Modal */}
+            <LogoutModal
+                isOpen={isLogoutModalOpen}
+                onClose={closeLogoutModal}
+                onConfirm={confirmLogout}
+                userName={userToLogout?.fullName}
+            />
         </div>
     );
 };

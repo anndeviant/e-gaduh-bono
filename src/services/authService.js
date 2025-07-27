@@ -2,11 +2,12 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updatePassword,
-  deleteUser,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
 } from "firebase/auth";
 import {
+  collection,
+  getDocs,
+  query,
+  where,
   doc,
   setDoc,
   getDoc,
@@ -18,22 +19,65 @@ import { auth, db } from "../firebase/config";
 
 const login = async (email, password) => {
   try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    const user = userCredential.user;
-    const userDoc = await getDoc(doc(db, "users", user.uid));
+    // Pertama, coba login dengan Firebase Auth (untuk Super Admin)
+    try {
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+      const user = userCredential.user;
+      const userDoc = await getDoc(doc(db, "users", user.uid));
 
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      return { ...user, ...userData };
-    } else {
-      throw new Error("User data not found in Firestore.");
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // Update lastLogin untuk Super Admin
+        await updateDoc(doc(db, "users", user.uid), {
+          lastLogin: serverTimestamp(),
+        });
+        return { ...user, ...userData };
+      }
+    } catch (firebaseError) {
+      // Jika Firebase Auth gagal, coba login collection-based (untuk Admin biasa)
+      console.log("Firebase Auth failed, trying collection-based auth");
     }
+
+    // Kedua, coba login dengan collection "users" (untuk Admin biasa)
+    const usersCollection = collection(db, "users");
+    const q = query(
+      usersCollection,
+      where("email", "==", email),
+      where("role", "==", "Admin")
+    );
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      throw new Error("Email atau password salah");
+    }
+
+    const adminDoc = querySnapshot.docs[0];
+    const adminData = adminDoc.data();
+
+    // Verifikasi password (plain text comparison untuk Admin)
+    if (adminData.password !== password) {
+      throw new Error("Email atau password salah");
+    }
+
+    // Update lastLogin untuk Admin
+    await updateDoc(doc(db, "users", adminDoc.id), {
+      lastLogin: serverTimestamp(),
+    });
+
+    // Return data yang compatible dengan Firebase user format
+    return {
+      uid: adminDoc.id,
+      email: adminData.email,
+      accessToken: `admin_${adminDoc.id}_${Date.now()}`, // Custom token for admin
+      ...adminData,
+    };
   } catch (error) {
-    throw error;
+    console.error("Login error:", error);
+    throw new Error("Email atau password salah");
   }
 };
 

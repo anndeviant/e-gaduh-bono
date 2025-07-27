@@ -7,7 +7,9 @@ import AdminForm from '../../components/admin/AdminForm';
 import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import Notification from '../../components/common/Notification';
+import LogoutModal from '../../components/admin/LogoutModal';
 import useNotification from '../../hooks/useNotification';
+import { useLogoutModal } from '../../hooks/useLogoutModal';
 import { Plus, ArrowLeft } from 'lucide-react';
 import adminService from '../../services/adminService';
 import authService from '../../services/authService';
@@ -23,6 +25,15 @@ const AdminManagement = () => {
     const [selectedAdminFilter, setSelectedAdminFilter] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [deleteLoading, setDeleteLoading] = useState(false);
+
+    // Hooks
+    const {
+        isLogoutModalOpen,
+        userToLogout,
+        openLogoutModal,
+        closeLogoutModal,
+        confirmLogout
+    } = useLogoutModal();
 
     // Notification hook
     const {
@@ -251,8 +262,8 @@ const AdminManagement = () => {
             minWidth: '120px',
             render: (admin) => (
                 <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${admin.role === 'Super Admin'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-blue-100 text-blue-800'
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'bg-blue-100 text-blue-800'
                     }`}>
                     {admin.role}
                 </span>
@@ -266,7 +277,7 @@ const AdminManagement = () => {
     if (loading) {
         return (
             <div className="h-screen w-full flex overflow-hidden bg-gray-100">
-                <Sidebar activeItem="management" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+                <Sidebar activeItem="management" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} onLogout={openLogoutModal} />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
                     <div className="flex-1 flex items-center justify-center">
@@ -282,7 +293,7 @@ const AdminManagement = () => {
 
     return (
         <div className="h-screen w-full flex overflow-hidden bg-gray-100">
-            <Sidebar activeItem="management" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
+            <Sidebar activeItem="management" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} onLogout={openLogoutModal} />
             <div className="flex-1 flex flex-col min-w-0">
                 <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
@@ -374,6 +385,14 @@ const AdminManagement = () => {
                     loading={deleteLoading}
                 />
             )}
+
+            {/* Logout Modal */}
+            <LogoutModal
+                isOpen={isLogoutModalOpen}
+                onClose={closeLogoutModal}
+                onConfirm={confirmLogout}
+                userName={userToLogout?.fullName}
+            />
         </div>
     );
 };
