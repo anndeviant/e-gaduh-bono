@@ -8,6 +8,12 @@ import SearchableDropdown from '../../components/common/SearchableDropdown';
 import { Plus, User, ChevronDown, ChevronUp, Edit, Trash2, Mail, MapPin, Calendar, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
 import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
 import PeternakForm from '../../components/admin/PeternakForm';
+import {
+    getAllPeternak,
+    createPeternak,
+    updatePeternak,
+    deletePeternak,
+} from '../../services/peternakService';
 
 const PeternakManagement = () => {
     const navigate = useNavigate();
@@ -37,57 +43,18 @@ const PeternakManagement = () => {
             return;
         }
 
-        setTimeout(() => {
-            setPeternak([
-                {
-                    id: 1,
-                    namaLengkap: 'Ahmad Subarjo',
-                    nik: '3401020304800001',
-                    alamat: 'Dusun Ngaliyan RT 01/RW 02, Desa Bono, Kecamatan Kaloran, Kabupaten Temanggung, Jawa Tengah',
-                    nomorTelepon: '081234567890',
-                    email: 'ahmad.subarjo@email.com',
-                    jenisKelamin: 'Laki-laki',
-                    statusKinerja: 'Baik',
-                    tanggalDaftar: '2024-01-15',
-                    programAktif: {
-                        jumlahTernakAwal: 10,
-                        jumlahTernakSaatIni: 15,
-                        kewajibanPengembalian: 12,
-                        statusSiklus: 'Aktif'
-                    }
-                },
-                {
-                    id: 2,
-                    namaLengkap: 'Siti Aminah',
-                    nik: '3401020304800002',
-                    alamat: 'Dusun Krajan RT 02/RW 01, Desa Bono',
-                    nomorTelepon: '081234567891',
-                    email: 'siti.aminah@email.com',
-                    jenisKelamin: 'Perempuan',
-                    statusKinerja: 'Baik',
-                    tanggalDaftar: '2024-02-01',
-                    programAktif: {
-                        jumlahTernakAwal: 8,
-                        jumlahTernakSaatIni: 12,
-                        kewajibanPengembalian: 10,
-                        statusSiklus: 'Aktif'
-                    }
-                },
-                {
-                    id: 3,
-                    namaLengkap: 'Budi Santoso',
-                    nik: '3401020304800003',
-                    alamat: 'Dusun Jetis RT 03/RW 02, Desa Bono',
-                    nomorTelepon: '081234567892',
-                    email: 'budi.santoso@email.com',
-                    jenisKelamin: 'Laki-laki',
-                    statusKinerja: 'Perhatian',
-                    tanggalDaftar: '2024-03-10',
-                    programAktif: null
-                }
-            ]);
+        const fetchPeternak = async () => {
+            setLoading(true);
+            try {
+                const data = await getAllPeternak();
+                setPeternak(data);
+            } catch (error) {
+                // handle error jika perlu
+            }
             setLoading(false);
-        }, 1000);
+        };
+
+        fetchPeternak();
     }, [navigate]);
 
     const toggleRowExpansion = (peternakId) => {
@@ -108,32 +75,45 @@ const PeternakManagement = () => {
         setDeletingPeternak(peternak);
     };
 
-    const handleDeletePeternak = () => {
+    const handleDeletePeternak = async () => {
         if (!deletingPeternak) return;
         setDeleteLoading(true);
-        setTimeout(() => {
-            setPeternak(peternak.filter(p => p.id !== deletingPeternak.id));
+        try {
+            await deletePeternak(deletingPeternak.id);
+            const data = await getAllPeternak();
+            setPeternak(data);
             setDeletingPeternak(null);
-            setDeleteLoading(false);
-        }, 1000);
+        } catch (error) {
+            // handle error jika perlu
+        }
+        setDeleteLoading(false);
     };
 
-    const handleSavePeternak = (formData) => {
-        if (view === 'edit' && editingPeternak) {
-            // Update existing peternak
-            setPeternak(peternak.map(p => p.id === editingPeternak.id ? { ...p, ...formData } : p));
-        } else {
-            // Add new peternak
-            const newPeternak = {
-                ...formData,
-                id: Date.now(), // simple unique id
-                tanggalDaftar: new Date().toISOString().split('T')[0],
-                programAktif: null,
-            };
-            setPeternak([newPeternak, ...peternak]);
+    const handleSavePeternak = async (formData) => {
+        setLoading(true);
+        try {
+            // Pastikan statusKinerja ada, jika tidak isi default
+            if (!formData.statusKinerja) {
+                formData.statusKinerja = "Baik";
+            }
+            // Pastikan statusSiklus ada, jika tidak isi default
+            if (!formData.statusSiklus) {
+                formData.statusSiklus = "Belum Dimulai"; // atau nilai default lain sesuai kebutuhan
+            }
+            if (view === 'edit' && editingPeternak) {
+                await updatePeternak(editingPeternak.id, formData);
+            } else {
+                await createPeternak(formData);
+            }
+            // Refresh data
+            const data = await getAllPeternak();
+            setPeternak(data);
+            setView('list');
+            setEditingPeternak(null);
+        } catch (error) {
+            // handle error jika perlu
         }
-        setView('list');
-        setEditingPeternak(null);
+        setLoading(false);
     };
 
     const handleCancelForm = () => {
@@ -311,9 +291,9 @@ const PeternakManagement = () => {
                                                                                 </div>
                                                                                 <div className="mt-6 pt-4 border-t">
                                                                                     <h4 className="text-sm font-semibold text-gray-800 mb-3">Informasi Program</h4>
-                                                                                    {p.programAktif ? (
+                                                                                    {p.statusSiklus ? (
                                                                                         <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                                                                                            <div className="bg-blue-50 p-3 rounded-lg">
+                                                                                            {/*<div className="bg-blue-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-blue-700">Ternak Awal</p>
                                                                                                 <p className="text-lg font-bold text-blue-800">{p.programAktif.jumlahTernakAwal}</p>
                                                                                             </div>
@@ -324,11 +304,11 @@ const PeternakManagement = () => {
                                                                                             <div className="bg-yellow-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-yellow-700">Wajib Kembali</p>
                                                                                                 <p className="text-lg font-bold text-yellow-800">{p.programAktif.kewajibanPengembalian}</p>
-                                                                                            </div>
+                                                                                            </div>*/}
                                                                                             <div className="col-span-3 mt-2">
                                                                                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                                                                                                     <CheckCircle className="h-4 w-4 mr-1.5" />
-                                                                                                    Status Siklus: {p.programAktif.statusSiklus}
+                                                                                                    Status Siklus: {p.statusSiklus}
                                                                                                 </span>
                                                                                             </div>
                                                                                         </div>
