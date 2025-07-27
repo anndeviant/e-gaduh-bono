@@ -251,13 +251,13 @@ const PeternakManagement = () => {
                                                                 </td>
                                                             </tr>
                                                             {isExpanded && (
-                                                                <tr key={`${p.id}-detail`}>
-                                                                    <td colSpan={4} className="p-0">
-                                                                        <div className="bg-gray-50 p-4 sm:p-6 animate-in slide-in-from-top-2 duration-300">
-                                                                            <div className="bg-white rounded-lg border p-4 sm:p-6 relative">
-                                                                                <div className="absolute top-4 right-4 flex items-center space-x-2">
-                                                                                    <button onClick={() => handleEditPeternak(p)} className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-colors" title="Edit Peternak"><Edit size={16} /></button>
-                                                                                    <button onClick={() => handleShowDeleteConfirm(p)} className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full transition-colors" title="Hapus Peternak"><Trash2 size={16} /></button>
+                                                                <tr key={`${p.id}-detail`} className="bg-gray-50">
+                                                                    <td colSpan={4} className="px-4 sm:px-6 py-4">
+                                                                        <div className="bg-white rounded-lg p-4 sm:p-6 animate-in slide-in-from-top-2 duration-300">
+                                                                            <div className="relative">
+                                                                                <div className="absolute top-0 right-0 flex items-center space-x-2">
+                                                                                    <button onClick={(e) => { e.stopPropagation(); handleEditPeternak(p); }} className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-colors" title="Edit Peternak"><Edit size={16} /></button>
+                                                                                    <button onClick={(e) => { e.stopPropagation(); handleShowDeleteConfirm(p); }} className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full transition-colors" title="Hapus Peternak"><Trash2 size={16} /></button>
                                                                                 </div>
                                                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                                                                                     <div className="flex items-start space-x-3">
