@@ -8,7 +8,8 @@ const ResponsiveTable = ({
     onDelete,
     onView,
     className = "",
-    showPasswordToggle = false
+    showPasswordToggle = false,
+    currentUserEmail = ''
 }) => {
     const [visiblePasswords, setVisiblePasswords] = useState({});
 
@@ -33,14 +34,17 @@ const ResponsiveTable = ({
 
     const getStatusBadge = (status) => {
         const statusConfig = {
+            'active': 'bg-green-100 text-green-800',
             'Aktif': 'bg-green-100 text-green-800',
             'Baik': 'bg-green-100 text-green-800',
+            'inactive': 'bg-gray-100 text-gray-800',
             'Tidak Aktif': 'bg-gray-100 text-gray-800',
             'Perhatian': 'bg-yellow-100 text-yellow-800',
             'Bermasalah': 'bg-red-100 text-red-800'
         };
+        const normalizedStatus = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig['Aktif']}`}>
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig[normalizedStatus] || 'bg-gray-100 text-gray-800'}`}>
                 {status}
             </span>
         );
@@ -67,7 +71,7 @@ const ResponsiveTable = ({
             return (
                 <div className="flex items-center">
                     <span className="text-sm text-gray-900 mr-2 font-mono">
-                        {visiblePasswords[item.id] ? value : '••••••••••••••'}
+                        {visiblePasswords[item.id] ? (item.generatedPassword || value) : '••••••••••••••'}
                     </span>
                     <button
                         onClick={() => togglePasswordVisibility(item.id)}
@@ -80,6 +84,7 @@ const ResponsiveTable = ({
         }
 
         if (column.key === 'admin' || column.key === 'peternak') {
+            const entity = column.render(item);
             return (
                 <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10">
@@ -88,10 +93,10 @@ const ResponsiveTable = ({
                         </div>
                     </div>
                     <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{item.name || item.namaLengkap}</div>
-                        <div className="text-sm text-gray-500">{item.email}</div>
+                        <div className="text-sm font-medium text-gray-900">{entity.name || item.namaLengkap}</div>
+                        <div className="text-sm text-gray-500">{entity.email}</div>
                         {/* Tampilkan role di bawah email untuk admin */}
-                        {item.role && <div className="text-xs text-gray-600 mt-1">{getRoleBadge(item.role)}</div>}
+                        {entity.role && <div className="text-xs text-gray-600 mt-1">{getRoleBadge(entity.role)}</div>}
                         {/* Tampilkan NIK untuk peternak */}
                         {item.nik && <div className="text-xs text-gray-400">NIK: {item.nik}</div>}
                     </div>
@@ -128,7 +133,7 @@ const ResponsiveTable = ({
                                     </th>
                                 ))}
                                 {(onEdit || onDelete || onView) && (
-                                    <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                                         Aksi
                                     </th>
                                 )}
@@ -147,8 +152,8 @@ const ResponsiveTable = ({
                                         </td>
                                     ))}
                                     {(onEdit || onDelete || onView) && (
-                                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <div className="flex items-center justify-end space-x-2">
+                                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
+                                            <div className="flex items-center justify-start space-x-2">
                                                 {onView && (
                                                     <button
                                                         onClick={() => onView(item)}
@@ -170,8 +175,9 @@ const ResponsiveTable = ({
                                                 {onDelete && (
                                                     <button
                                                         onClick={() => onDelete(item)}
-                                                        className="text-red-600 hover:text-red-900 transition-colors p-1"
-                                                        title="Hapus"
+                                                        className="text-red-600 hover:text-red-900 transition-colors p-1 disabled:text-gray-400 disabled:cursor-not-allowed"
+                                                        title={item.email === currentUserEmail ? "Tidak dapat menghapus diri sendiri" : "Hapus"}
+                                                        disabled={item.email === currentUserEmail}
                                                     >
                                                         <Trash2 className="h-4 w-4" />
                                                     </button>

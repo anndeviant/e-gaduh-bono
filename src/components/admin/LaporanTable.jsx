@@ -86,10 +86,10 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                             <Calendar className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    Triwulan {item.triwulan}
+                                                    Triwulan {item.quarterNumber || item.triwulan}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
-                                                    {item.tahun}
+                                                    {item.quarterInfo?.year || item.tahun}
                                                 </div>
                                             </div>
                                         </div>
@@ -98,35 +98,35 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                     {/* Jumlah Awal */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <div className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full text-sm font-medium text-gray-900">
-                                            {item.jumlahTernakAwal || 0}
+                                            {item.jumlah_awal || 0}
                                         </div>
                                     </td>
 
                                     {/* Lahir */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor('lahir')}`}>
-                                            +{item.jumlahLahir}
+                                            +{item.jumlah_lahir || 0}
                                         </span>
                                     </td>
 
                                     {/* Mati */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor('mati')}`}>
-                                            -{item.jumlahMati}
+                                            -{item.jumlah_mati || 0}
                                         </span>
                                     </td>
 
                                     {/* Terjual */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor('terjual')}`}>
-                                            -{item.jumlahTerjual}
+                                            -{item.jumlah_dijual || 0}
                                         </span>
                                     </td>
 
                                     {/* Total Akhir */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`text-sm ${getBadgeColor('total')}`}>
-                                            {item.jumlahAkhirPeriode} ekor
+                                            {item.jumlah_saat_ini || 0} ekor
                                         </span>
                                     </td>
 
@@ -170,7 +170,7 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                     <td colSpan="8" className="px-4 sm:px-6 py-4">
                                         <div className="space-y-3">
                                             <div className="text-xs font-medium text-gray-700 border-b border-gray-200 pb-2">
-                                                Detail Laporan Triwulan {item.triwulan} {item.tahun}
+                                                Detail Laporan Triwulan {item.quarterNumber || item.triwulan} {item.quarterInfo?.year || item.tahun}
                                             </div>
 
                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">

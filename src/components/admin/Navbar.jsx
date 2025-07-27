@@ -32,8 +32,8 @@ const Navbar = ({ onToggleSidebar }) => {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 sm:py-4">
-      <div className="flex items-center justify-between">
+    <nav className="bg-white border-b border-gray-200 px-3 sm:px-6 py-4">
+      <div className="flex items-center justify-between h-8 sm:h-12">
         {/* Left side - Mobile menu button and Time */}
         <div className="flex items-center space-x-3">
           {/* Mobile Menu Button */}

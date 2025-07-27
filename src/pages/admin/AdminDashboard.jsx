@@ -85,10 +85,10 @@ const AdminDashboard = () => {
                 />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-                    <div className="flex-1 flex items-center justify-center p-4">
-                        <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-green-600"></div>
-                            <span className="text-sm sm:text-base text-gray-600">Memuat dashboard...</span>
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="flex flex-col items-center space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-200 border-t-green-600"></div>
+                            <span className="text-sm sm:text-base text-gray-600 font-medium">Memuat dashboard...</span>
                         </div>
                     </div>
                 </div>

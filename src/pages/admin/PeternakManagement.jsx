@@ -2,37 +2,37 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
-import ResponsiveTable from '../../components/common/ResponsiveTable';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
-import { Plus, User } from 'lucide-react';
+import { Plus, User, ChevronDown, ChevronUp, Edit, Trash2, Mail, MapPin, Calendar, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
+import PeternakForm from '../../components/admin/PeternakForm';
 
 const PeternakManagement = () => {
     const navigate = useNavigate();
     const [peternak, setPeternak] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
+    const [view, setView] = useState('list'); // 'list', 'add', 'edit'
     const [editingPeternak, setEditingPeternak] = useState(null);
+    const [deletingPeternak, setDeletingPeternak] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [selectedPeternak, setSelectedPeternak] = useState(null);
-    const [showModal, setShowModal] = useState(false);
+    const [expandedRows, setExpandedRows] = useState({});
 
     useEffect(() => {
-        // Check authentication
         const user = localStorage.getItem('adminUser');
         if (!user) {
             navigate('/admin/login');
             return;
         }
 
-        // Sample data peternak
         setTimeout(() => {
             setPeternak([
                 {
                     id: 1,
                     namaLengkap: 'Ahmad Subarjo',
                     nik: '3401020304800001',
-                    alamat: 'Dusun Ngaliyan RT 01/RW 02, Desa Bono',
+                    alamat: 'Dusun Ngaliyan RT 01/RW 02, Desa Bono, Kecamatan Kaloran, Kabupaten Temanggung, Jawa Tengah',
                     nomorTelepon: '081234567890',
                     email: 'ahmad.subarjo@email.com',
                     jenisKelamin: 'Laki-laki',
@@ -79,33 +79,57 @@ const PeternakManagement = () => {
         }, 1000);
     }, [navigate]);
 
+    const toggleRowExpansion = (peternakId) => {
+        setExpandedRows(prev => ({ ...prev, [peternakId]: !prev[peternakId] }));
+    };
+
     const handleAddPeternak = () => {
         setEditingPeternak(null);
-        setShowForm(true);
+        setView('add');
     };
 
     const handleEditPeternak = (peternak) => {
         setEditingPeternak(peternak);
-        setShowForm(true);
+        setView('edit');
     };
 
-    const handleDeletePeternak = (peternakId) => {
-        if (window.confirm('Apakah Anda yakin ingin menghapus peternak ini?')) {
-            setPeternak(peternak.filter(p => p.id !== peternakId));
+    const handleShowDeleteConfirm = (peternak) => {
+        setDeletingPeternak(peternak);
+    };
+
+    const handleDeletePeternak = () => {
+        if (!deletingPeternak) return;
+        setDeleteLoading(true);
+        setTimeout(() => {
+            setPeternak(peternak.filter(p => p.id !== deletingPeternak.id));
+            setDeletingPeternak(null);
+            setDeleteLoading(false);
+        }, 1000);
+    };
+
+    const handleSavePeternak = (formData) => {
+        if (view === 'edit' && editingPeternak) {
+            // Update existing peternak
+            setPeternak(peternak.map(p => p.id === editingPeternak.id ? { ...p, ...formData } : p));
+        } else {
+            // Add new peternak
+            const newPeternak = {
+                ...formData,
+                id: Date.now(), // simple unique id
+                tanggalDaftar: new Date().toISOString().split('T')[0],
+                programAktif: null,
+            };
+            setPeternak([newPeternak, ...peternak]);
         }
-    };
-
-    const handleViewDetail = (peternakData) => {
-        setSelectedPeternak(peternakData);
-        setShowModal(true);
-    };
-
-    const handleCancelForm = () => {
-        setShowForm(false);
+        setView('list');
         setEditingPeternak(null);
     };
 
-    // Create options for SearchableDropdown
+    const handleCancelForm = () => {
+        setView('list');
+        setEditingPeternak(null);
+    };
+
     const defaultPeternakOption = {
         label: "Semua Peternak",
         value: "",
@@ -117,35 +141,13 @@ const PeternakManagement = () => {
         ...peternak.map(p => ({
             label: p.namaLengkap,
             value: p.id,
-            subtitle: `NIK: ${p.nik} • ${p.alamat}`
+            subtitle: `NIK: ${p.nik}`
         }))
     ];
 
     const filteredPeternak = selectedPeternakFilter ?
         peternak.filter(p => p.id === selectedPeternakFilter) :
         peternak;
-
-    // Define table columns
-    const peternakColumns = [
-        {
-            key: 'peternak',
-            header: 'Peternak',
-            minWidth: '300px',
-            render: (peternak) => peternak // Will be handled by ResponsiveTable
-        },
-        {
-            key: 'nomorTelepon',
-            header: 'No. Telepon',
-            accessor: 'nomorTelepon',
-            minWidth: '150px'
-        },
-        {
-            key: 'status',
-            header: 'Status Kinerja',
-            accessor: 'statusKinerja',
-            minWidth: '140px'
-        }
-    ];
 
     const getStatusBadge = (status) => {
         const statusConfig = {
@@ -154,7 +156,7 @@ const PeternakManagement = () => {
             'Bermasalah': 'bg-red-100 text-red-800'
         };
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig['Baik']}`}>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[status] || 'bg-gray-100 text-gray-800'}`}>
                 {status}
             </span>
         );
@@ -163,17 +165,13 @@ const PeternakManagement = () => {
     if (loading) {
         return (
             <div className="h-screen w-full flex overflow-hidden bg-gray-100">
-                <Sidebar
-                    activeItem="peternak"
-                    isMobileMenuOpen={isMobileMenuOpen}
-                    setIsMobileMenuOpen={setIsMobileMenuOpen}
-                />
+                <Sidebar activeItem="peternak" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-                    <div className="flex-1 flex items-center justify-center p-4">
-                        <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-green-600"></div>
-                            <span className="text-sm sm:text-base text-gray-600">Memuat data peternak...</span>
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="flex flex-col items-center space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-200 border-t-green-600"></div>
+                            <span className="text-sm sm:text-base text-gray-600 font-medium">Memuat data peternak...</span>
                         </div>
                     </div>
                 </div>
@@ -183,185 +181,200 @@ const PeternakManagement = () => {
 
     return (
         <div className="h-screen w-full flex overflow-hidden bg-gray-100">
-            <Sidebar
-                activeItem="peternak"
-                isMobileMenuOpen={isMobileMenuOpen}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-            />
+            <Sidebar activeItem="peternak" isMobileMenuOpen={isMobileMenuOpen} setIsMobileMenuOpen={setIsMobileMenuOpen} />
             <div className="flex-1 flex flex-col min-w-0">
                 <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
 
-                {/* Main Content */}
                 <main className="flex-1 overflow-auto p-3 sm:p-6">
                     <div className="max-w-7xl mx-auto">
-                        {/* Header */}
-                        <div className="mb-6 sm:mb-8">
-                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Kelola Peternak</h1>
-                            <p className="text-gray-600 mt-2">
-                                Kelola data peternak dan informasi program gaduh di e-Gaduh Bono
-                            </p>
-                        </div>
-
-                        {/* Actions Bar */}
-                        <div className="bg-white rounded-lg shadow mb-4 sm:mb-6 p-4 sm:p-6">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-                                <div className="flex-1 w-full sm:w-auto">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Filter Peternak
-                                    </label>
-                                    <SearchableDropdown
-                                        options={peternakOptions}
-                                        value={selectedPeternakFilter}
-                                        onChange={setSelectedPeternakFilter}
-                                        placeholder="Pilih peternak..."
-                                        defaultOption={defaultPeternakOption}
-                                        searchPlaceholder="Cari nama, NIK, atau alamat..."
-                                        displayKey="label"
-                                        valueKey="value"
-                                        searchKeys={['label', 'subtitle']}
-                                        noResultsText="Tidak ada peternak ditemukan"
-                                    />
+                        {view === 'list' && (
+                            <>
+                                <div className="mb-6 sm:mb-8">
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Kelola Peternak</h1>
+                                    <p className="text-gray-600 mt-2">Kelola data peternak dan informasi program gaduh di e-Gaduh Bono</p>
                                 </div>
-                                <button
-                                    onClick={handleAddPeternak}
-                                    className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Tambah Peternak
-                                </button>
-                            </div>
-                        </div>
 
-                        {/* Data Table */}
-                        <ResponsiveTable
-                            data={filteredPeternak}
-                            columns={peternakColumns}
-                            onEdit={handleEditPeternak}
-                            onDelete={handleDeletePeternak}
-                            onView={handleViewDetail}
-                        />
+                                <div className="bg-white rounded-lg shadow mb-4 sm:mb-6 p-4 sm:p-6">
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
+                                        <div className="flex-1 w-full sm:w-auto">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Filter Peternak</label>
+                                            <SearchableDropdown
+                                                options={peternakOptions}
+                                                value={selectedPeternakFilter}
+                                                onChange={setSelectedPeternakFilter}
+                                                placeholder="Pilih peternak..."
+                                                defaultOption={defaultPeternakOption}
+                                                searchPlaceholder="Cari nama atau NIK..."
+                                                displayKey="label"
+                                                valueKey="value"
+                                                searchKeys={['label', 'subtitle']}
+                                                noResultsText="Tidak ada peternak ditemukan"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={handleAddPeternak}
+                                            className="inline-flex items-center px-3 sm:px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
+                                        >
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Tambah Peternak
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white rounded-lg shadow overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Peternak</th>
+                                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nomor Telepon</th>
+                                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Kinerja</th>
+                                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Detail</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {filteredPeternak.map((p) => {
+                                                    const isExpanded = expandedRows[p.id];
+                                                    return (
+                                                        <>
+                                                            <tr key={p.id} onClick={() => toggleRowExpansion(p.id)} className="cursor-pointer hover:bg-gray-50">
+                                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                                                    <div className="flex items-center">
+                                                                        <div className="flex-shrink-0 h-10 w-10">
+                                                                            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                                                                                <User className="h-5 w-5 text-green-600" />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="ml-4">
+                                                                            <div className="text-sm font-medium text-gray-900">{p.namaLengkap}</div>
+                                                                            <div className="text-sm text-gray-500">NIK: {p.nik}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.nomorTelepon}</td>
+                                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap">{getStatusBadge(p.statusKinerja)}</td>
+                                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
+                                                                    <button className="text-gray-400 hover:text-green-600">
+                                                                        {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                            {isExpanded && (
+                                                                <tr key={`${p.id}-detail`}>
+                                                                    <td colSpan={4} className="p-0">
+                                                                        <div className="bg-gray-50 p-4 sm:p-6 animate-in slide-in-from-top-2 duration-300">
+                                                                            <div className="bg-white rounded-lg border p-4 sm:p-6 relative">
+                                                                                <div className="absolute top-4 right-4 flex items-center space-x-2">
+                                                                                    <button onClick={() => handleEditPeternak(p)} className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full transition-colors" title="Edit Peternak"><Edit size={16} /></button>
+                                                                                    <button onClick={() => handleShowDeleteConfirm(p)} className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full transition-colors" title="Hapus Peternak"><Trash2 size={16} /></button>
+                                                                                </div>
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                                                                                    <div className="flex items-start space-x-3">
+                                                                                        <Mail className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
+                                                                                        <div>
+                                                                                            <p className="text-xs text-gray-500">Email</p>
+                                                                                            <p className="text-sm font-medium text-gray-800">{p.email}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-start space-x-3">
+                                                                                        <User className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
+                                                                                        <div>
+                                                                                            <p className="text-xs text-gray-500">Jenis Kelamin</p>
+                                                                                            <p className="text-sm font-medium text-gray-800">{p.jenisKelamin}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-start space-x-3 md:col-span-2">
+                                                                                        <MapPin className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
+                                                                                        <div className="min-w-0 flex-1">
+                                                                                            <p className="text-xs text-gray-500">Alamat</p>
+                                                                                            <p className="text-sm font-medium text-gray-800 break-words">{p.alamat}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-start space-x-3">
+                                                                                        <Calendar className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
+                                                                                        <div>
+                                                                                            <p className="text-xs text-gray-500">Tanggal Bergabung</p>
+                                                                                            <p className="text-sm font-medium text-gray-800">{new Date(p.tanggalDaftar).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="mt-6 pt-4 border-t">
+                                                                                    <h4 className="text-sm font-semibold text-gray-800 mb-3">Informasi Program</h4>
+                                                                                    {p.programAktif ? (
+                                                                                        <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                                                                                            <div className="bg-blue-50 p-3 rounded-lg">
+                                                                                                <p className="text-xs text-blue-700">Ternak Awal</p>
+                                                                                                <p className="text-lg font-bold text-blue-800">{p.programAktif.jumlahTernakAwal}</p>
+                                                                                            </div>
+                                                                                            <div className="bg-green-50 p-3 rounded-lg">
+                                                                                                <p className="text-xs text-green-700">Ternak Saat Ini</p>
+                                                                                                <p className="text-lg font-bold text-green-800">{p.programAktif.jumlahTernakSaatIni}</p>
+                                                                                            </div>
+                                                                                            <div className="bg-yellow-50 p-3 rounded-lg">
+                                                                                                <p className="text-xs text-yellow-700">Wajib Kembali</p>
+                                                                                                <p className="text-lg font-bold text-yellow-800">{p.programAktif.kewajibanPengembalian}</p>
+                                                                                            </div>
+                                                                                            <div className="col-span-3 mt-2">
+                                                                                                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                                                                                    <CheckCircle className="h-4 w-4 mr-1.5" />
+                                                                                                    Status Siklus: {p.programAktif.statusSiklus}
+                                                                                                </span>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <div className="text-center py-4 bg-gray-100 rounded-lg">
+                                                                                            <AlertCircle className="h-6 w-6 text-gray-400 mx-auto mb-1" />
+                                                                                            <p className="text-sm text-gray-600">Tidak ada program aktif</p>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                        </>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {(view === 'add' || view === 'edit') && (
+                            <div>
+                                <div className="mb-4 sm:mb-4">
+                                    <button onClick={handleCancelForm} className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 mb-2">
+                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                        Kembali ke Daftar Peternak
+                                    </button>
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                        {view === 'edit' ? 'Edit Data Peternak' : 'Tambah Peternak Baru'}
+                                    </h1>
+                                    <p className="text-gray-600 mt-2">
+                                        {view === 'edit' ? `Mengubah data untuk ${editingPeternak?.namaLengkap}` : 'Tambahkan data peternak baru ke sistem e-Gaduh Bono'}
+                                    </p>
+                                </div>
+                                <PeternakForm
+                                    initialData={editingPeternak}
+                                    onSave={handleSavePeternak}
+                                    onCancel={handleCancelForm}
+                                />
+                            </div>
+                        )}
                     </div>
                 </main>
             </div>
 
-            {/* Detail Modal */}
-            {showModal && selectedPeternak && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setShowModal(false)}></div>
-                        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-lg font-medium text-gray-900">Detail Peternak</h3>
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                >
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="space-y-6">
-                                <div className="flex items-center space-x-4">
-                                    <User className="h-20 w-20 text-gray-400 bg-gray-100 rounded-full p-4" />
-                                    <div>
-                                        <h4 className="text-2xl font-semibold">{selectedPeternak.namaLengkap}</h4>
-                                        <div className="mt-2">{getStatusBadge(selectedPeternak.statusKinerja)}</div>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-3">
-                                        <div>
-                                            <span className="text-sm font-medium text-gray-500">NIK:</span>
-                                            <p className="text-sm mt-1">{selectedPeternak.nik}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm font-medium text-gray-500">Jenis Kelamin:</span>
-                                            <p className="text-sm mt-1">{selectedPeternak.jenisKelamin}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm font-medium text-gray-500">No. Telepon:</span>
-                                            <p className="text-sm mt-1">{selectedPeternak.nomorTelepon}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm font-medium text-gray-500">Email:</span>
-                                            <p className="text-sm mt-1">{selectedPeternak.email}</p>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <div>
-                                            <span className="text-sm font-medium text-gray-500">Alamat:</span>
-                                            <p className="text-sm mt-1">{selectedPeternak.alamat}</p>
-                                        </div>
-                                        <div>
-                                            <span className="text-sm font-medium text-gray-500">Tanggal Bergabung:</span>
-                                            <p className="text-sm mt-1">{new Date(selectedPeternak.tanggalDaftar).toLocaleDateString('id-ID')}</p>
-                                        </div>
-                                        {selectedPeternak.programAktif && (
-                                            <div>
-                                                <span className="text-sm font-medium text-gray-500">Program Aktif:</span>
-                                                <div className="text-sm mt-1 space-y-1">
-                                                    <div>Jumlah Ternak Saat Ini: <strong>{selectedPeternak.programAktif.jumlahTernakSaatIni} ekor</strong></div>
-                                                    <div>Kewajiban Pengembalian: <strong>{selectedPeternak.programAktif.kewajibanPengembalian} ekor</strong></div>
-                                                    <div>Status: <span className="text-green-600 font-medium">{selectedPeternak.programAktif.statusSiklus}</span></div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex justify-end space-x-3">
-                                    <button
-                                        onClick={() => setShowModal(false)}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                                    >
-                                        Tutup
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            setShowModal(false);
-                                            handleEditPeternak(selectedPeternak);
-                                        }}
-                                        className="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700"
-                                    >
-                                        Edit Data
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Form Modal Placeholder */}
-            {showForm && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={handleCancelForm}></div>
-                        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    {editingPeternak ? 'Edit Peternak' : 'Tambah Peternak Baru'}
-                                </h3>
-                                <button onClick={handleCancelForm} className="text-gray-400 hover:text-gray-600">
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="text-center py-8">
-                                <p className="text-gray-500">Form akan diimplementasi selanjutnya</p>
-                                <div className="mt-4 space-x-3">
-                                    <button
-                                        onClick={handleCancelForm}
-                                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                                    >
-                                        Batal
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            {deletingPeternak && (
+                <DeleteConfirmModal
+                    admin={deletingPeternak}
+                    onConfirm={handleDeletePeternak}
+                    onCancel={() => setDeletingPeternak(null)}
+                    loading={deleteLoading}
+                />
             )}
         </div>
     );

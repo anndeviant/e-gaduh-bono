@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ArrowLeft } from 'lucide-react';
 import logoDomba from '../assets/icon/logo_domba.png';
+import authService from '../services/authService';
 
 const LoginPage = () => {
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
-        username: '',
+        email: '',
         password: ''
     });
     const [showPassword, setShowPassword] = useState(false);
@@ -27,35 +28,15 @@ const LoginPage = () => {
         setError('');
 
         try {
-            // Sample users untuk testing
-            const users = [
-                {
-                    id: 1,
-                    username: 'admin',
-                    password: 'admin123',
-                    name: 'Administrator',
-                    role: 'Super Admin'
-                },
-                {
-                    id: 2,
-                    username: 'admin1',
-                    password: 'Bx9#mK8$pQ2wR7!',
-                    name: 'Budi Santoso',
-                    role: 'Admin'
-                }
-            ];
-
-            const user = users.find(u =>
-                u.username === formData.username && u.password === formData.password
-            );
+            const user = await authService.login(formData.email, formData.password);
 
             if (user) {
                 // Simpan token di localStorage
-                localStorage.setItem('adminToken', 'dummy-token');
+                localStorage.setItem('adminToken', user.accessToken);
                 localStorage.setItem('adminUser', JSON.stringify({
-                    id: user.id,
-                    username: user.username,
-                    name: user.name,
+                    id: user.uid,
+                    email: user.email,
+                    name: user.fullName,
                     role: user.role
                 }));
 
@@ -65,7 +46,7 @@ const LoginPage = () => {
                 setError('Username atau password salah');
             }
         } catch (error) {
-            setError('Terjadi kesalahan. Silakan coba lagi.');
+            setError(error.message || 'Terjadi kesalahan. Silakan coba lagi.');
         } finally {
             setLoading(false);
         }
@@ -76,7 +57,16 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative">
+            {/* Arrow Back Button - Top Left */}
+            <button
+                onClick={handleBackToHome}
+                className="absolute top-4 left-4 sm:top-6 sm:left-6 p-2 rounded-full bg-white shadow-md hover:shadow-lg transition-all duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                title="Kembali ke Beranda"
+            >
+                <ArrowLeft className="h-5 w-5 text-gray-600 hover:text-gray-800" />
+            </button>
+
             <div className="max-w-md w-full space-y-8">
                 <div>
                     <div className="flex justify-center">
@@ -89,11 +79,17 @@ const LoginPage = () => {
                             }}
                         />
                     </div>
-                    <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                        Login Admin
+                    <h2 className="mt-6 text-center text-3xl font-extrabold text-green-700">
+                        e-Gaduh Bono
                     </h2>
+                    <p className="mt-2 text-center text-sm text-gray-600" style={{ marginBottom: '2px' }}>
+                        Sistem Gaduh Digital
+                    </p>
+                    <h3 className="mt-4 text-center text-xl font-bold text-gray-900">
+                        Login Admin
+                    </h3>
                     <p className="mt-2 text-center text-sm text-gray-600">
-                        Masuk untuk mengakses dashboard admin e-Gaduh Bono
+                        Masuk untuk mengakses dashboard admin
                     </p>
                 </div>
 
@@ -101,22 +97,22 @@ const LoginPage = () => {
                     <div className="space-y-4">
                         {/* Username/Email Field */}
                         <div>
-                            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                                Email/Username
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                                Email
                             </label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                                     <Mail className="h-4 w-4 text-gray-600" />
                                 </div>
                                 <input
-                                    id="username"
-                                    name="username"
-                                    type="text"
+                                    id="email"
+                                    name="email"
+                                    type="email"
                                     required
-                                    value={formData.username}
+                                    value={formData.email}
                                     onChange={handleChange}
                                     className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
-                                    placeholder="Masukkan email atau username"
+                                    placeholder="Masukkan email"
                                 />
                             </div>
                         </div>
@@ -161,21 +157,6 @@ const LoginPage = () => {
                             {error}
                         </div>
                     )}
-
-                    {/* Demo Credentials */}
-                    <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
-                        <p className="font-medium mb-2">Demo Credentials:</p>
-                        <div className="space-y-1">
-                            <div>
-                                <p><strong>Super Admin:</strong></p>
-                                <p>Username: <span className="font-mono">admin</span> | Password: <span className="font-mono">admin123</span></p>
-                            </div>
-                            <div>
-                                <p><strong>Admin:</strong></p>
-                                <p>Username: <span className="font-mono">admin1</span> | Password: <span className="font-mono">Bx9#mK8$pQ2wR7!</span></p>
-                            </div>
-                        </div>
-                    </div>
 
                     <div className="space-y-3">
                         <button

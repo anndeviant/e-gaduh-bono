@@ -90,17 +90,26 @@ const Sidebar = ({ activeItem, isMobileMenuOpen, setIsMobileMenuOpen }) => {
       `}>
                 <div className="flex flex-col h-full">
                     {/* Header dengan Logo dan Tombol Back */}
-                    <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
-                        <div className="flex items-center">
-                            <img
-                                src={logoDomba}
-                                alt="e-Gaduh Bono"
-                                className="h-8 w-8 mr-3 flex-shrink-0"
-                                onError={(e) => {
-                                    e.target.style.display = 'none';
-                                }}
-                            />
-                            <h2 className="text-lg sm:text-xl font-bold text-green-700 truncate">e-Gaduh Bono</h2>
+                    <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200 h-16 sm:h-20">
+                        <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0">
+                                <img
+                                    src={logoDomba}
+                                    alt="e-Gaduh Bono"
+                                    className="h-8 w-8 sm:h-10 sm:w-10"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                    }}
+                                />
+                            </div>
+                            <div className="flex flex-col justify-center">
+                                <h2 className="text-lg sm:text-xl font-bold text-green-700 leading-tight m-0">
+                                    e-Gaduh Bono
+                                </h2>
+                                <p className="hidden sm:block text-xs text-gray-500 leading-tight m-0" style={{ marginBottom: '2px' }}>
+                                    Sistem Gaduh Digital
+                                </p>
+                            </div>
                         </div>
 
                         {/* Tombol Back untuk Mobile */}

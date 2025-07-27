@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Users, BarChart3, Heart, Menu, X } from 'lucide-react';
-import logoDomba from '../assets/icon/logo_domba.png';
+import { Eye, Users, BarChart3, Heart } from 'lucide-react';
+import PeternakSidebar from '../components/peternak/PeternakSidebar';
+import PeternakNavbar from '../components/peternak/PeternakNavbar';
 
 const LandingPage = () => {
     const navigate = useNavigate();
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [statistics] = useState({
         totalPeternak: 156,
         totalTernak: 423,
@@ -19,94 +20,23 @@ const LandingPage = () => {
 
     const handleViewStatistics = () => {
         navigate('/peternak/transparency');
-        setIsMenuOpen(false);
     };
 
-    const toggleMenu = () => {
-        setIsMenuOpen(!isMenuOpen);
+    const toggleSidebar = () => {
+        setIsMobileMenuOpen(!isMobileMenuOpen);
     };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-            {/* Header */}
-            <header className="bg-white shadow-sm sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16">
-                        {/* Logo & Brand */}
-                        <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0">
-                                <img
-                                    src={logoDomba}
-                                    alt="e-Gaduh Bono"
-                                    className="h-10 w-10 sm:h-12 sm:w-12"
-                                    onError={(e) => {
-                                        e.target.style.display = 'none';
-                                    }}
-                                />
-                            </div>
-                            <div>
-                                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-green-700">
-                                    e-Gaduh Bono
-                                </h1>
-                                <p className="text-xs text-gray-500 hidden sm:block">
-                                    Sistem Gaduh Digital
-                                </p>
-                            </div>
-                        </div>
+            {/* Sidebar */}
+            <PeternakSidebar
+                activeItem="home"
+                isMobileMenuOpen={isMobileMenuOpen}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+            />
 
-                        {/* Desktop Navigation */}
-                        <div className="hidden md:flex items-center space-x-4">
-                            <button
-                                onClick={handleViewStatistics}
-                                className="inline-flex items-center px-4 py-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
-                            >
-                                <Eye className="w-4 h-4 mr-2" />
-                                Data Peternak
-                            </button>
-                            <button
-                                onClick={handleAdminLogin}
-                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                            >
-                                Login Admin
-                            </button>
-                        </div>
-
-                        {/* Mobile Menu Button */}
-                        <div className="md:hidden">
-                            <button
-                                onClick={toggleMenu}
-                                className="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-green-600 hover:bg-gray-100 transition-colors"
-                                aria-expanded="false"
-                            >
-                                {isMenuOpen ? (
-                                    <X className="block h-6 w-6" />
-                                ) : (
-                                    <Menu className="block h-6 w-6" />
-                                )}
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Mobile Navigation Menu */}
-                    {isMenuOpen && (
-                        <div className="md:hidden border-t border-gray-200 py-4 space-y-3">
-                            <button
-                                onClick={handleViewStatistics}
-                                className="flex items-center w-full px-4 py-3 text-left text-green-600 hover:bg-green-50 rounded-md transition-colors"
-                            >
-                                <Eye className="w-5 h-5 mr-3" />
-                                Lihat Data Peternak
-                            </button>
-                            <button
-                                onClick={handleAdminLogin}
-                                className="flex items-center w-full px-4 py-3 text-left bg-green-600 text-white hover:bg-green-700 rounded-md transition-colors"
-                            >
-                                Masuk sebagai Admin
-                            </button>
-                        </div>
-                    )}
-                </div>
-            </header>
+            {/* Navbar */}
+            <PeternakNavbar onToggleSidebar={toggleSidebar} />
 
             {/* Hero Section */}
             <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
@@ -242,7 +172,7 @@ const LandingPage = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center">
                         <h3 className="text-lg sm:text-xl font-bold mb-2">e-Gaduh Bono</h3>
-                        <p className="text-gray-400 text-sm sm:text-base mb-2">
+                        <p className="text-gray-400 text-sm sm:text-base mb-2" style={{ marginBottom: '2px' }}>
                             Sistem Gaduh Digital Desa Bono - Meningkatkan Kesejahteraan Peternak
                         </p>
                         <p className="text-gray-500 text-xs sm:text-sm">

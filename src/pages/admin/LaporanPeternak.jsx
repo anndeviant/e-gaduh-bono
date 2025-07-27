@@ -4,7 +4,14 @@ import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import LaporanTable from '../../components/admin/LaporanTable';
+import LaporanTriwulanForm from '../../components/admin/LaporanTriwulanForm';
+import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
+import ProgramProgressIndicator from '../../components/admin/ProgramProgressIndicator';
+import StatusKinerjaManager from '../../components/admin/StatusKinerjaManager';
 import { Plus, ArrowLeft, User, MapPin, Phone, Eye } from 'lucide-react';
+import {
+    // Unused functions removed for now
+} from '../../services/laporanService';
 
 const LaporanPeternak = () => {
     const navigate = useNavigate();
@@ -16,9 +23,10 @@ const LaporanPeternak = () => {
     const [selectedTriwulan, setSelectedTriwulan] = useState('');
     const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear());
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [modalData, setModalData] = useState(null);
-    const [viewMode, setViewMode] = useState('peternak'); // 'peternak' atau 'laporan'
+    const [viewMode, setViewMode] = useState('peternak'); // 'peternak', 'laporan', 'add', 'edit'
+    const [editingLaporan, setEditingLaporan] = useState(null);
+    const [deletingLaporan, setDeletingLaporan] = useState(null);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
         // Check authentication
@@ -39,8 +47,9 @@ const LaporanPeternak = () => {
                     nomorTelepon: '081234567890',
                     email: 'ahmad.subarjo@email.com',
                     jenisKelamin: 'Laki-laki',
-                    statusKinerja: 'Baik',
+                    statusKinerja: 'Progress',
                     tanggalDaftar: '2024-01-15',
+                    jumlahTernakAwal: 5,
                     programAktif: true,
                     jumlahTernakSaatIni: 8,
                     targetPengembalian: 6,
@@ -54,8 +63,9 @@ const LaporanPeternak = () => {
                     nomorTelepon: '081234567891',
                     email: 'siti.aminah@email.com',
                     jenisKelamin: 'Perempuan',
-                    statusKinerja: 'Perhatian',
+                    statusKinerja: 'Progress',
                     tanggalDaftar: '2024-02-20',
+                    jumlahTernakAwal: 3,
                     programAktif: true,
                     jumlahTernakSaatIni: 4,
                     targetPengembalian: 4,
@@ -69,8 +79,9 @@ const LaporanPeternak = () => {
                     nomorTelepon: '081234567892',
                     email: 'bambang.wijaya@email.com',
                     jenisKelamin: 'Laki-laki',
-                    statusKinerja: 'Baik',
+                    statusKinerja: 'Progress',
                     tanggalDaftar: '2024-03-10',
+                    jumlahTernakAwal: 4,
                     programAktif: true,
                     jumlahTernakSaatIni: 6,
                     targetPengembalian: 5,
@@ -82,62 +93,94 @@ const LaporanPeternak = () => {
                 {
                     id: 'laporan001',
                     peternakId: 'aB1cDefG2hIjkL3mN4o',
-                    tanggalLaporan: '2024-03-31',
-                    triwulan: 1,
-                    tahun: 2024,
-                    jumlahTernakAwal: 5,
-                    jumlahLahir: 3,
-                    jumlahMati: 0,
-                    jumlahTerjual: 0,
-                    jumlahAkhirPeriode: 8,
+                    quarterNumber: 1,
+                    quarterInfo: {
+                        quarter: 1,
+                        year: 2024,
+                        startDate: '2024-01-15',
+                        endDate: '2024-04-14',
+                        displayPeriod: '15 Januari 2024 - 14 April 2024'
+                    },
+                    tanggalLaporan: '2024-04-14',
+                    jumlah_awal: 5,
+                    jumlah_lahir: 3,
+                    jumlah_mati: 0,
+                    jumlah_dijual: 0,
+                    jumlah_saat_ini: 8,
                     kendala: 'Domba sering batuk dan terlihat lemas',
                     solusi: 'Berikan obat batuk khusus ternak, pisahkan dari domba lain, dan konsultasi dengan petugas kesehatan hewan terdekat',
-                    keterangan: 'Masalah ini sering terjadi saat pergantian musim. Perlu penanganan cepat untuk mencegah penyebaran.'
+                    keterangan: 'Masalah ini sering terjadi saat pergantian musim. Perlu penanganan cepat untuk mencegah penyebaran.',
+                    tanggalDibuat: '2024-04-14T10:00:00.000Z',
+                    tanggalUpdate: '2024-04-14T10:00:00.000Z'
                 },
                 {
                     id: 'laporan002',
                     peternakId: 'aB1cDefG2hIjkL3mN4o',
-                    tanggalLaporan: '2024-06-30',
-                    triwulan: 2,
-                    tahun: 2024,
-                    jumlahTernakAwal: 8,
-                    jumlahLahir: 2,
-                    jumlahMati: 1,
-                    jumlahTerjual: 1,
-                    jumlahAkhirPeriode: 8,
+                    quarterNumber: 2,
+                    quarterInfo: {
+                        quarter: 2,
+                        year: 2024,
+                        startDate: '2024-04-15',
+                        endDate: '2024-07-14',
+                        displayPeriod: '15 April 2024 - 14 Juli 2024'
+                    },
+                    tanggalLaporan: '2024-07-14',
+                    jumlah_awal: 8,
+                    jumlah_lahir: 2,
+                    jumlah_mati: 1,
+                    jumlah_dijual: 1,
+                    jumlah_saat_ini: 8,
                     kendala: 'Harga jual domba rendah, sulit mencari pembeli',
                     solusi: 'Bergabung dengan kelompok peternak untuk penjualan kolektif, manfaatkan media sosial untuk promosi, atau jual langsung ke pasar tradisional',
-                    keterangan: 'Strategi pemasaran yang tepat bisa meningkatkan keuntungan peternak secara signifikan.'
+                    keterangan: 'Strategi pemasaran yang tepat bisa meningkatkan keuntungan peternak secara signifikan.',
+                    tanggalDibuat: '2024-07-14T10:00:00.000Z',
+                    tanggalUpdate: '2024-07-14T10:00:00.000Z'
                 },
                 {
                     id: 'laporan003',
                     peternakId: 'cD2eF3gH4iJkL5mN6o',
-                    tanggalLaporan: '2024-03-31',
-                    triwulan: 1,
-                    tahun: 2024,
-                    jumlahTernakAwal: 3,
-                    jumlahLahir: 2,
-                    jumlahMati: 1,
-                    jumlahTerjual: 0,
-                    jumlahAkhirPeriode: 4,
+                    quarterNumber: 1,
+                    quarterInfo: {
+                        quarter: 1,
+                        year: 2024,
+                        startDate: '2024-02-20',
+                        endDate: '2024-05-19',
+                        displayPeriod: '20 Februari 2024 - 19 Mei 2024'
+                    },
+                    tanggalLaporan: '2024-05-19',
+                    jumlah_awal: 3,
+                    jumlah_lahir: 2,
+                    jumlah_mati: 1,
+                    jumlah_dijual: 0,
+                    jumlah_saat_ini: 4,
                     kendala: 'Sempat mengalami masalah pakan di musim kemarau',
                     solusi: 'Diberikan bantuan pakan tambahan dan penyuluhan manajemen pakan kering',
-                    keterangan: 'Alternatif pakan saat musim kering sangat penting untuk menjaga kondisi ternak tetap sehat.'
+                    keterangan: 'Alternatif pakan saat musim kering sangat penting untuk menjaga kondisi ternak tetap sehat.',
+                    tanggalDibuat: '2024-05-19T10:00:00.000Z',
+                    tanggalUpdate: '2024-05-19T10:00:00.000Z'
                 },
                 {
                     id: 'laporan004',
                     peternakId: 'eF3gH4iJ5kL6mN7o8p',
-                    tanggalLaporan: '2024-03-31',
-                    triwulan: 1,
-                    tahun: 2024,
-                    jumlahTernakAwal: 4,
-                    jumlahLahir: 3,
-                    jumlahMati: 1,
-                    jumlahTerjual: 0,
-                    jumlahAkhirPeriode: 6,
+                    quarterNumber: 1,
+                    quarterInfo: {
+                        quarter: 1,
+                        year: 2024,
+                        startDate: '2024-03-10',
+                        endDate: '2024-06-09',
+                        displayPeriod: '10 Maret 2024 - 9 Juni 2024'
+                    },
+                    tanggalLaporan: '2024-06-09',
+                    jumlah_awal: 4,
+                    jumlah_lahir: 3,
+                    jumlah_mati: 1,
+                    jumlah_dijual: 0,
+                    jumlah_saat_ini: 6,
                     kendala: 'Kandang bocor saat hujan, domba basah kuyup',
                     solusi: 'Perbaiki atap kandang dengan seng atau genting, pastikan ada saluran air yang baik di sekitar kandang',
-                    keterangan: 'Kandang yang kering dan bersih sangat penting untuk kesehatan ternak, terutama saat musim hujan.'
+                    keterangan: 'Kandang yang kering dan bersih sangat penting untuk kesehatan ternak, terutama saat musim hujan.',
+                    tanggalDibuat: '2024-06-09T10:00:00.000Z',
+                    tanggalUpdate: '2024-06-09T10:00:00.000Z'
                 }
             ]);
 
@@ -148,6 +191,15 @@ const LaporanPeternak = () => {
     // Helper functions
     const getPeternakById = (peternakId) => {
         return peternakData.find(p => p.id === peternakId);
+    };
+
+    const getPeternakLaporan = (peternakId) => {
+        return laporanData.filter(laporan => laporan.peternakId === peternakId);
+    };
+
+    const getLatestLaporan = (peternakId) => {
+        const laporan = getPeternakLaporan(peternakId);
+        return laporan.length > 0 ? laporan[laporan.length - 1] : null;
     };
 
     const getTriwulanLabel = (triwulan) => {
@@ -162,12 +214,14 @@ const LaporanPeternak = () => {
 
     const getStatusBadge = (status) => {
         const statusConfig = {
-            'Baik': 'bg-green-100 text-green-800',
-            'Perhatian': 'bg-yellow-100 text-yellow-800',
-            'Bermasalah': 'bg-red-100 text-red-800'
+            'Baru': 'bg-gray-100 text-gray-800',
+            'Progress': 'bg-blue-100 text-blue-800',
+            'Bagus': 'bg-green-100 text-green-800',
+            'Biasa': 'bg-yellow-100 text-yellow-800',
+            'Kurang': 'bg-red-100 text-red-800'
         };
         return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig['Baik']}`}>
+            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig['Baru']}`}>
                 {status}
             </span>
         );
@@ -202,6 +256,7 @@ const LaporanPeternak = () => {
 
     // Options for Tahun filter
     const tahunOptions = [
+        { value: '', label: 'Semua Tahun', subtitle: 'Tampilkan semua tahun' },
         { value: 2024, label: '2024', subtitle: 'Tahun 2024' },
         { value: 2025, label: '2025', subtitle: 'Tahun 2025' }
     ];
@@ -209,8 +264,8 @@ const LaporanPeternak = () => {
     const getFilteredLaporanByPeternak = (peternakId) => {
         return laporanData.filter(laporan => {
             const matchPeternak = laporan.peternakId === peternakId;
-            const matchTriwulan = selectedTriwulan === '' || laporan.triwulan.toString() === selectedTriwulan;
-            const matchTahun = laporan.tahun === selectedTahun;
+            const matchTriwulan = selectedTriwulan === '' || laporan.quarterNumber?.toString() === selectedTriwulan;
+            const matchTahun = selectedTahun === '' || laporan.quarterInfo?.year === selectedTahun;
             return matchPeternak && matchTriwulan && matchTahun;
         });
     };
@@ -225,22 +280,71 @@ const LaporanPeternak = () => {
         setSelectedPeternakId(null);
         setViewMode('peternak');
         setSelectedTriwulan('');
+        setSelectedTahun('');
+        setEditingLaporan(null);
+    };
+
+    const handleBackToLaporan = () => {
+        setViewMode('laporan');
+        setEditingLaporan(null);
     };
 
     const handleAddLaporan = () => {
-        setModalData(null);
-        setShowModal(true);
+        setEditingLaporan(null);
+        setViewMode('add');
     };
 
     const handleEditLaporan = (laporan) => {
-        setModalData(laporan);
-        setShowModal(true);
+        setEditingLaporan(laporan);
+        setViewMode('edit');
     };
 
-    const handleDeleteLaporan = (laporan) => {
-        const peternak = getPeternakById(laporan.peternakId);
-        if (window.confirm(`Hapus laporan ${getTriwulanLabel(laporan.triwulan)} ${laporan.tahun} dari ${peternak?.namaLengkap}?`)) {
-            setLaporanData(prev => prev.filter(l => l.id !== laporan.id));
+    const handleSaveLaporan = async (formData) => {
+        try {
+            if (viewMode === 'edit' && editingLaporan) {
+                // Update existing laporan
+                setLaporanData(laporanData.map(l => l.id === editingLaporan.id ? { ...l, ...formData } : l));
+            } else {
+                // Add new laporan
+                setLaporanData([formData, ...laporanData]);
+            }
+            setViewMode('laporan');
+            setEditingLaporan(null);
+        } catch (error) {
+            console.error('Error saving laporan:', error);
+        }
+    };
+
+    const handleCancelForm = () => {
+        setViewMode('laporan');
+        setEditingLaporan(null);
+    };
+
+    const handleShowDeleteConfirm = (laporan) => {
+        setDeletingLaporan(laporan);
+    };
+
+    const handleStatusKinerjaUpdate = (newStatus) => {
+        // Update status kinerja di state lokal
+        setPeternakData(prev => prev.map(p =>
+            p.id === selectedPeternakId
+                ? { ...p, statusKinerja: newStatus, programAktif: false, tanggalSelesai: new Date().toISOString() }
+                : p
+        ));
+    };
+
+    const handleDeleteLaporan = async () => {
+        if (!deletingLaporan) return;
+        setDeleteLoading(true);
+        try {
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            setLaporanData(laporanData.filter(l => l.id !== deletingLaporan.id));
+            setDeletingLaporan(null);
+        } catch (error) {
+            console.error('Error deleting laporan:', error);
+        } finally {
+            setDeleteLoading(false);
         }
     };
 
@@ -254,10 +358,10 @@ const LaporanPeternak = () => {
                 />
                 <div className="flex-1 flex flex-col min-w-0">
                     <Navbar onToggleSidebar={() => setIsMobileMenuOpen(!isMobileMenuOpen)} />
-                    <div className="flex-1 flex items-center justify-center p-4">
-                        <div className="flex items-center space-x-2">
-                            <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-green-600"></div>
-                            <span className="text-sm sm:text-base text-gray-600">Memuat data laporan...</span>
+                    <div className="flex-1 flex items-center justify-center">
+                        <div className="flex flex-col items-center space-y-4">
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-200 border-t-green-600"></div>
+                            <span className="text-sm sm:text-base text-gray-600 font-medium">Memuat data laporan...</span>
                         </div>
                     </div>
                 </div>
@@ -322,42 +426,62 @@ const LaporanPeternak = () => {
                                                         Total Laporan
                                                     </th>
                                                     <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Aksi
+                                                        Laporan Terakhir
+                                                    </th>
+                                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        Detail
                                                     </th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
-                                                {filteredPeternak.map((peternak) => (
-                                                    <tr key={peternak.id} className="hover:bg-gray-50">
-                                                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                                                            <div className="flex items-center">
-                                                                <User className="h-9 w-9 sm:h-10 sm:w-10 text-gray-400 bg-gray-100 rounded-full p-2 mr-3 flex-shrink-0" />
-                                                                <div>
-                                                                    <div className="text-sm font-medium text-gray-900">
-                                                                        {peternak.namaLengkap}
-                                                                    </div>
-                                                                    <div className="mt-1">
-                                                                        {getStatusBadge(peternak.statusKinerja)}
+                                                {filteredPeternak.map((peternak) => {
+                                                    const latestLaporan = getLatestLaporan(peternak.id);
+
+                                                    return (
+                                                        <tr
+                                                            key={peternak.id}
+                                                            className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                                            onClick={() => handleViewPeternakDetail(peternak.id)}
+                                                            title="Klik untuk melihat detail laporan"
+                                                        >
+                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                                                <div className="flex items-center">
+                                                                    <User className="h-9 w-9 sm:h-10 sm:w-10 text-gray-400 bg-gray-100 rounded-full p-2 mr-3 flex-shrink-0" />
+                                                                    <div>
+                                                                        <div className="text-sm font-medium text-gray-900">
+                                                                            {peternak.namaLengkap}
+                                                                        </div>
+                                                                        <div className="mt-1">
+                                                                            {getStatusBadge(peternak.statusKinerja)}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                {peternak.totalLaporan} laporan
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                            <button
-                                                                onClick={() => handleViewPeternakDetail(peternak.id)}
-                                                                className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
-                                                            >
-                                                                <Eye className="h-4 w-4 mr-1" />
-                                                                Detail
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                            </td>
+                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                    {peternak.totalLaporan} laporan
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                                                                {latestLaporan ? (
+                                                                    <div className="text-sm">
+                                                                        <div className="font-medium text-gray-900">
+                                                                            Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarterNumber || latestLaporan.triwulan]}
+                                                                        </div>
+                                                                        <div className="text-gray-500 text-xs">
+                                                                            {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID')}
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-gray-500 text-sm">-</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                                                                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 mx-auto" />
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -376,43 +500,71 @@ const LaporanPeternak = () => {
                                     )}
                                 </div>
                             </>
-                        ) : (
+                        ) : viewMode === 'laporan' ? (
                             // Tampilan Detail Laporan Peternak
                             <>
                                 {(() => {
                                     const selectedPeternak = getPeternakById(selectedPeternakId);
                                     const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
+                                    const latestLaporan = getLatestLaporan(selectedPeternakId);
 
                                     return (
                                         <>
                                             {/* Header dengan tombol back */}
                                             <div className="mb-6 sm:mb-8">
-                                                <div className="flex items-center mb-4">
+                                                <div className="mb-4 sm:mb-4">
                                                     <button
                                                         onClick={handleBackToPeternak}
-                                                        className="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
+                                                        className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 mb-2"
                                                     >
-                                                        <ArrowLeft className="h-5 w-5" />
+                                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                                        Kembali ke Daftar Peternak
                                                     </button>
-                                                    <div>
-                                                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                                                            Laporan {selectedPeternak?.namaLengkap}
-                                                        </h1>
-                                                        <p className="text-gray-600 mt-2">
-                                                            Kelola laporan triwulan untuk peternak ini
-                                                        </p>
-                                                    </div>
+                                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                                        Laporan {selectedPeternak?.namaLengkap}
+                                                    </h1>
+                                                    <p className="text-gray-600 mt-2">
+                                                        Kelola laporan triwulan untuk peternak ini
+                                                    </p>
                                                 </div>
                                             </div>
 
                                             {/* Filters and Actions */}
                                             <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
-                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                                                    <div className="md:col-span-2">
-                                                        <h3 className="text-lg font-medium text-gray-900 mb-2">Filter Laporan</h3>
-                                                        <p className="text-sm text-gray-600">Filter laporan berdasarkan periode dan tahun</p>
+                                                {/* Header Filter Laporan dan Laporan Terakhir */}
+                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6 mb-2 lg:mb-3 items-center">
+                                                    <div>
+                                                        <h3 className="text-lg font-medium text-gray-900">Filter Laporan</h3>
                                                     </div>
+                                                    <div className="lg:text-right">
+                                                        <div className="inline-block bg-gray-100 rounded-lg px-3 py-2">
+                                                            {latestLaporan ? (
+                                                                <div className="text-sm text-gray-700">
+                                                                    <span className="font-medium">Laporan Terakhir: </span>
+                                                                    <span className="font-medium text-gray-900">
+                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarterNumber || latestLaporan.triwulan]} {latestLaporan.quarterInfo?.year || latestLaporan.tahun}
+                                                                    </span>
+                                                                    <span className="mx-1">•</span>
+                                                                    <span>
+                                                                        {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
+                                                                            day: 'numeric',
+                                                                            month: 'long',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-sm text-gray-500">
+                                                                    <span className="font-medium">Laporan Terakhir: </span>
+                                                                    <span>Belum ada laporan</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
 
+                                                {/* Filter Triwulan dan Tahun */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                                     {/* Filter Triwulan */}
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -423,7 +575,6 @@ const LaporanPeternak = () => {
                                                             value={selectedTriwulan}
                                                             onChange={setSelectedTriwulan}
                                                             placeholder="Pilih triwulan..."
-                                                            defaultOption={triwulanOptions[0]}
                                                             searchPlaceholder="Cari triwulan..."
                                                             displayKey="label"
                                                             valueKey="value"
@@ -442,7 +593,6 @@ const LaporanPeternak = () => {
                                                             value={selectedTahun}
                                                             onChange={setSelectedTahun}
                                                             placeholder="Pilih tahun..."
-                                                            defaultOption={tahunOptions[0]}
                                                             searchPlaceholder="Cari tahun..."
                                                             displayKey="label"
                                                             valueKey="value"
@@ -467,6 +617,19 @@ const LaporanPeternak = () => {
                                                     </button>
                                                 </div>
                                             </div>
+
+                                            {/* Progress Indicator */}
+                                            <ProgramProgressIndicator
+                                                peternakData={selectedPeternak}
+                                                laporanData={laporanPeternak}
+                                            />
+
+                                            {/* Status Kinerja Manager */}
+                                            <StatusKinerjaManager
+                                                peternakData={selectedPeternak}
+                                                laporanData={laporanPeternak}
+                                                onStatusUpdate={handleStatusKinerjaUpdate}
+                                            />
 
                                             {/* Info Peternak - Subcard */}
                                             <div className="bg-white rounded-lg shadow mb-6 p-5 sm:p-6">
@@ -502,7 +665,49 @@ const LaporanPeternak = () => {
                                             <LaporanTable
                                                 laporan={laporanPeternak}
                                                 onEdit={handleEditLaporan}
-                                                onDelete={handleDeleteLaporan}
+                                                onDelete={handleShowDeleteConfirm}
+                                            />
+                                        </>
+                                    );
+                                })()}
+                            </>
+                        ) : (
+                            // Tampilan Form Add/Edit Laporan
+                            <>
+                                {(() => {
+                                    const selectedPeternak = getPeternakById(selectedPeternakId);
+
+                                    return (
+                                        <>
+                                            {/* Header dengan tombol back */}
+                                            <div className="mb-6 sm:mb-8">
+                                                <div className="mb-4 sm:mb-4">
+                                                    <button
+                                                        onClick={handleBackToLaporan}
+                                                        className="flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 mb-2"
+                                                    >
+                                                        <ArrowLeft className="h-4 w-4 mr-2" />
+                                                        Kembali ke Laporan {selectedPeternak?.namaLengkap}
+                                                    </button>
+                                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                                        {viewMode === 'edit' ? 'Edit Laporan' : 'Tambah Laporan Baru'}
+                                                    </h1>
+                                                    <p className="text-gray-600 mt-2">
+                                                        {viewMode === 'edit'
+                                                            ? `Mengubah laporan ${getTriwulanLabel(editingLaporan?.triwulan)} ${editingLaporan?.tahun} untuk ${selectedPeternak?.namaLengkap}`
+                                                            : `Buat laporan baru untuk ${selectedPeternak?.namaLengkap}`
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Form */}
+                                            <LaporanTriwulanForm
+                                                laporan={editingLaporan}
+                                                peternakId={selectedPeternakId}
+                                                peternakData={selectedPeternak}
+                                                onSave={handleSaveLaporan}
+                                                onCancel={handleCancelForm}
                                             />
                                         </>
                                     );
@@ -513,33 +718,16 @@ const LaporanPeternak = () => {
                 </main>
             </div>
 
-            {/* Modal untuk Add/Edit Laporan */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-                        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setShowModal(false)}></div>
-
-                        <div className="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-medium text-gray-900">
-                                    {modalData ? 'Edit Laporan' : 'Tambah Laporan Baru'}
-                                </h3>
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                >
-                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div className="text-center py-8">
-                                <p className="text-gray-500">Form akan diimplementasi selanjutnya</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            {deletingLaporan && (
+                <DeleteConfirmModal
+                    admin={deletingLaporan}
+                    onConfirm={handleDeleteLaporan}
+                    onCancel={() => setDeletingLaporan(null)}
+                    loading={deleteLoading}
+                    title="Hapus Laporan"
+                    message={`Apakah Anda yakin ingin menghapus laporan Triwulan ${deletingLaporan.quarterNumber || deletingLaporan.triwulan} ${deletingLaporan.quarterInfo?.year || deletingLaporan.tahun}?`}
+                    confirmText="Hapus Laporan"
+                />
             )}
         </div>
     );
