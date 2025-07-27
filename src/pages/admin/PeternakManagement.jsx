@@ -280,9 +280,9 @@ const PeternakManagement = () => {
                                                                                 </div>
                                                                                 <div className="mt-6 pt-4 border-t">
                                                                                     <h4 className="text-sm font-semibold text-gray-800 mb-3">Informasi Program</h4>
-                                                                                    {p.programAktif ? (
+                                                                                    {p.statusSiklus ? (
                                                                                         <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                                                                                            <div className="bg-blue-50 p-3 rounded-lg">
+                                                                                            {/*<div className="bg-blue-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-blue-700">Ternak Awal</p>
                                                                                                 <p className="text-lg font-bold text-blue-800">{p.programAktif.jumlahTernakAwal}</p>
                                                                                             </div>
@@ -293,11 +293,11 @@ const PeternakManagement = () => {
                                                                                             <div className="bg-yellow-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-yellow-700">Wajib Kembali</p>
                                                                                                 <p className="text-lg font-bold text-yellow-800">{p.programAktif.kewajibanPengembalian}</p>
-                                                                                            </div>
+                                                                                            </div>*/}
                                                                                             <div className="col-span-3 mt-2">
                                                                                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                                                                                                     <CheckCircle className="h-4 w-4 mr-1.5" />
-                                                                                                    Status Siklus: {p.programAktif.statusSiklus}
+                                                                                                    Status Siklus: {p.statusSiklus}
                                                                                                 </span>
                                                                                             </div>
                                                                                         </div>
