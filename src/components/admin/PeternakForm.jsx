@@ -7,16 +7,31 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
         nik: '',
         alamat: '',
         nomorTelepon: '',
-        email: '',
         jenisKelamin: '',
+        statusSiklus: 'Mulai', // Default Mulai
         tanggalDaftar: new Date().toISOString().split('T')[0], // Default hari ini
         jumlahTernakAwal: 5, // Default 5 kambing
-        // statusKinerja tidak perlu di form, otomatis "Baru"
+        targetPengembalian: 6, // Default 6 kambing untuk pengembalian
     });
+
+    const statusSiklusOptions = [
+        { value: 'Mulai', label: 'Mulai' },
+        { value: 'Selesai', label: 'Selesai' }
+    ];
 
     useEffect(() => {
         if (initialData) {
-            setFormData(initialData);
+            setFormData({
+                namaLengkap: initialData.namaLengkap || '',
+                nik: initialData.nik || '',
+                alamat: initialData.alamat || '',
+                nomorTelepon: initialData.nomorTelepon || '',
+                jenisKelamin: initialData.jenisKelamin || '',
+                statusSiklus: initialData.statusSiklus || 'Mulai',
+                tanggalDaftar: initialData.tanggalDaftar || new Date().toISOString().split('T')[0],
+                jumlahTernakAwal: initialData.jumlahTernakAwal || 5,
+                targetPengembalian: initialData.targetPengembalian || 6,
+            });
         }
     }, [initialData]);
 
@@ -31,20 +46,20 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        // Validasi basic sebelum submit
+        if (!formData.namaLengkap || !formData.nik || !formData.alamat || !formData.nomorTelepon || !formData.jenisKelamin || !formData.statusSiklus) {
+            alert('Mohon lengkapi semua field yang wajib diisi');
+            return;
+        }
+
+        console.log('Form Data being submitted:', formData);
         onSave(formData);
     };
 
     const genderOptions = [
         { value: 'Laki-laki', label: 'Laki-laki' },
         { value: 'Perempuan', label: 'Perempuan' },
-    ];
-
-    const statusOptions = [
-        { value: 'Baru', label: 'Baru' },
-        { value: 'Progress', label: 'Progress' },
-        { value: 'Bagus', label: 'Bagus' },
-        { value: 'Biasa', label: 'Biasa' },
-        { value: 'Kurang', label: 'Kurang' },
     ];
 
     return (
@@ -77,19 +92,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* Email */}
-                    <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
-                        <input
-                            type="email"
-                            name="email"
-                            id="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
-                            required
-                        />
-                    </div>
                     {/* Nomor Telepon */}
                     <div>
                         <label htmlFor="nomorTelepon" className="block text-sm font-medium text-gray-700">Nomor Telepon</label>
@@ -101,6 +103,18 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             onChange={handleChange}
                             className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
                             required
+                        />
+                    </div>
+                    {/* Jenis Kelamin */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Kelamin</label>
+                        <SearchableDropdown
+                            options={genderOptions}
+                            value={formData.jenisKelamin}
+                            onChange={(value) => handleDropdownChange('jenisKelamin', value)}
+                            placeholder="Pilih jenis kelamin..."
+                            valueKey="value"
+                            displayKey="label"
                         />
                     </div>
                     {/* Alamat */}
@@ -116,14 +130,14 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         ></textarea>
                     </div>
-                    {/* Jenis Kelamin */}
+                    {/* Status Siklus */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Kelamin</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status Siklus</label>
                         <SearchableDropdown
-                            options={genderOptions}
-                            value={formData.jenisKelamin}
-                            onChange={(value) => handleDropdownChange('jenisKelamin', value)}
-                            placeholder="Pilih jenis kelamin..."
+                            options={statusSiklusOptions}
+                            value={formData.statusSiklus}
+                            onChange={(value) => handleDropdownChange('statusSiklus', value)}
+                            placeholder="Pilih status siklus..."
                             valueKey="value"
                             displayKey="label"
                         />
@@ -155,26 +169,19 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* Status Kinerja */}
+                    {/* Wajib Pengembalian */}
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status Kinerja</label>
-                        {initialData ? (
-                            <SearchableDropdown
-                                options={statusOptions}
-                                value={formData.statusKinerja}
-                                onChange={(value) => handleDropdownChange('statusKinerja', value)}
-                                placeholder="Pilih status..."
-                                valueKey="value"
-                                displayKey="label"
-                            />
-                        ) : (
-                            <input
-                                type="text"
-                                value="Baru"
-                                readOnly
-                                className="mt-1 block w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-md shadow-sm text-gray-600 sm:text-sm"
-                            />
-                        )}
+                        <label htmlFor="targetPengembalian" className="block text-sm font-medium text-gray-700">Wajib Pengembalian</label>
+                        <input
+                            type="number"
+                            name="targetPengembalian"
+                            id="targetPengembalian"
+                            value={formData.targetPengembalian}
+                            onChange={handleChange}
+                            min="1"
+                            className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                            required
+                        />
                     </div>
                 </div>
 

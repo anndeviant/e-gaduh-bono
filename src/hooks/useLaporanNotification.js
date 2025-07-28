@@ -5,9 +5,9 @@ export const useLaporanNotification = () => {
     useNotificationToast();
 
   // Notifikasi untuk CREATE laporan
-  const notifyCreateSuccess = (peternakName, quarter, year) => {
+  const notifyCreateSuccess = (peternakName, reportNumber, year) => {
     success(
-      `Laporan Triwulan ${quarter} tahun ${year} berhasil dibuat`,
+      `Laporan ke-${reportNumber} tahun ${year} berhasil dibuat`,
       "Laporan Tersimpan",
       `Data laporan untuk ${peternakName} telah disimpan ke database`
     );
@@ -23,11 +23,7 @@ export const useLaporanNotification = () => {
 
   // Notifikasi untuk READ/LOAD laporan
   const notifyLoadSuccess = (count) => {
-    info(
-      `${count} laporan berhasil dimuat`,
-      "Data Dimuat",
-      "Laporan terbaru telah diperbarui"
-    );
+    info(`Total: ${count} Laporan`, "Data Dimuat");
   };
 
   const notifyLoadError = (errorMessage) => {
@@ -35,9 +31,9 @@ export const useLaporanNotification = () => {
   };
 
   // Notifikasi untuk UPDATE laporan
-  const notifyUpdateSuccess = (peternakName, quarter, year) => {
+  const notifyUpdateSuccess = (peternakName, reportNumber, year) => {
     success(
-      `Laporan Triwulan ${quarter} tahun ${year} berhasil diperbarui`,
+      `Laporan ke-${reportNumber} tahun ${year} berhasil diperbarui`,
       "Laporan Diperbarui",
       `Perubahan data laporan ${peternakName} telah disimpan`
     );
@@ -52,9 +48,9 @@ export const useLaporanNotification = () => {
   };
 
   // Notifikasi untuk DELETE laporan
-  const notifyDeleteSuccess = (peternakName, quarter, year) => {
+  const notifyDeleteSuccess = (peternakName, reportNumber, year) => {
     warning(
-      `Laporan Triwulan ${quarter} tahun ${year} telah dihapus`,
+      `Laporan ke-${reportNumber} tahun ${year} telah dihapus`,
       "Laporan Dihapus",
       `Data laporan ${peternakName} telah dihapus dari database`
     );
@@ -86,32 +82,6 @@ export const useLaporanNotification = () => {
     );
   };
 
-  // Notifikasi untuk status program
-  const notifyProgramUpdate = (peternakName, status) => {
-    success(
-      `Status program ${peternakName} diperbarui menjadi "${status}"`,
-      "Status Program Diperbarui",
-      "Perubahan status kinerja telah disimpan"
-    );
-  };
-
-  // Notifikasi khusus untuk batch operations
-  const notifyBatchSuccess = (operation, count) => {
-    success(
-      `${operation} berhasil untuk ${count} laporan`,
-      "Operasi Batch Berhasil",
-      "Semua data telah diproses"
-    );
-  };
-
-  const notifyBatchError = (operation, successCount, errorCount) => {
-    warning(
-      `${operation}: ${successCount} berhasil, ${errorCount} gagal`,
-      "Operasi Batch Sebagian Berhasil",
-      "Beberapa data mungkin perlu diproses ulang"
-    );
-  };
-
   return {
     notification,
     clearNotification,
@@ -129,13 +99,6 @@ export const useLaporanNotification = () => {
     // Validation & Confirmation
     notifyValidationError,
     notifyActionConfirm,
-
-    // Program Status
-    notifyProgramUpdate,
-
-    // Batch Operations
-    notifyBatchSuccess,
-    notifyBatchError,
 
     // Generic notifications
     success,
