@@ -242,7 +242,7 @@ const LaporanPeternak = () => {
                 alert("Peternak belum dipilih. Tidak bisa menyimpan laporan.");
                 return;
             }
-            
+
             // Pastikan formData memiliki idPeternak
             const dataToSave = {
                 ...formData,
@@ -263,7 +263,7 @@ const LaporanPeternak = () => {
             // Refresh data laporan untuk peternak terpilih
             const laporanList = await getLaporanByPeternak(selectedPeternakId);
             setLaporanData(laporanList);
-            
+
             // Refresh data keseluruhan untuk tabel AllLaporan
             const allLaporan = await getAllLaporan();
             setAllLaporanData(allLaporan);
@@ -271,7 +271,7 @@ const LaporanPeternak = () => {
             // Redirect kembali ke halaman laporan peternak
             setViewMode('laporan');
             setEditingLaporan(null);
-            
+
             console.log('Redirect berhasil ke halaman laporan');
         } catch (error) {
             console.error('Error saving laporan:', error);
@@ -313,7 +313,7 @@ const LaporanPeternak = () => {
             // Refresh data laporan untuk peternak terpilih
             const laporanList = await getLaporanByPeternak(selectedPeternakId);
             setLaporanData(laporanList);
-            
+
             // Refresh data keseluruhan untuk tabel AllLaporan
             const allLaporan = await getAllLaporan();
             setAllLaporanData(allLaporan);
@@ -389,8 +389,8 @@ const LaporanPeternak = () => {
                                             <button
                                                 onClick={handleToggleAllLaporan}
                                                 className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
-                                                        ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
-                                                        : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                                                    ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                                                    : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                                                     }`}
                                             >
                                                 {showAllLaporan ? 'Lihat Per Peternak' : 'Lihat Semua Laporan'}
@@ -702,7 +702,7 @@ const LaporanPeternak = () => {
                             <>
                                 {(() => {
                                     const selectedPeternak = getPeternakById(selectedPeternakId);
-
+                                    const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
                                     return (
                                         <>
                                             {/* Header dengan tombol back */}
@@ -733,6 +733,7 @@ const LaporanPeternak = () => {
                                                     laporan={editingLaporan}
                                                     peternakId={selectedPeternakId}
                                                     peternakData={selectedPeternak}
+                                                    triwulan={laporanPeternak.length > 0 ? laporanPeternak.length : 0}
                                                     onSave={handleSaveLaporan}
                                                     onCancel={handleCancelForm}
                                                 />
