@@ -100,6 +100,13 @@ const PeternakManagement = () => {
             if (!formData.statusSiklus) {
                 formData.statusSiklus = "Belum Dimulai"; // atau nilai default lain sesuai kebutuhan
             }
+
+            // Logic ternak
+            // jumlahTernakAwal dari form, jumlahTernakSaatIni = 0, targetPengembalian = jumlahTernakAwal + Math.floor(jumlahTernakAwal / 5)
+            formData.jumlahTernakAwal = Number(formData.jumlahTernakAwal) || 0;
+            formData.jumlahTernakSaatIni = 0; 
+            formData.targetPengembalian = formData.jumlahTernakAwal + 1;
+
             if (view === 'edit' && editingPeternak) {
                 await updatePeternak(editingPeternak.id, formData);
             } else {
@@ -238,7 +245,7 @@ const PeternakManagement = () => {
                                                                         </div>
                                                                         <div className="ml-4">
                                                                             <div className="text-sm font-medium text-gray-900">{p.namaLengkap}</div>
-                                                                            <div className="text-sm text-gray-500">NIK: {p.nik}</div>
+                                                                            <div className="text-sm text-gray-500">NIK: {p.nik} / {p.id ? p.id : '-'}</div>
                                                                         </div>
                                                                     </div>
                                                                 </td>
@@ -293,18 +300,18 @@ const PeternakManagement = () => {
                                                                                     <h4 className="text-sm font-semibold text-gray-800 mb-3">Informasi Program</h4>
                                                                                     {p.statusSiklus ? (
                                                                                         <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
-                                                                                            {/*<div className="bg-blue-50 p-3 rounded-lg">
+                                                                                            <div className="bg-blue-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-blue-700">Ternak Awal</p>
-                                                                                                <p className="text-lg font-bold text-blue-800">{p.programAktif.jumlahTernakAwal}</p>
+                                                                                                <p className="text-lg font-bold text-blue-800">{p.jumlahTernakAwal}</p>
                                                                                             </div>
                                                                                             <div className="bg-green-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-green-700">Ternak Saat Ini</p>
-                                                                                                <p className="text-lg font-bold text-green-800">{p.programAktif.jumlahTernakSaatIni}</p>
+                                                                                                <p className="text-lg font-bold text-green-800">{p.jumlahTernakSaatIni}</p>
                                                                                             </div>
                                                                                             <div className="bg-yellow-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-yellow-700">Wajib Kembali</p>
-                                                                                                <p className="text-lg font-bold text-yellow-800">{p.programAktif.kewajibanPengembalian}</p>
-                                                                                            </div>*/}
+                                                                                                <p className="text-lg font-bold text-yellow-800">{p.targetPengembalian}</p>
+                                                                                            </div>
                                                                                             <div className="col-span-3 mt-2">
                                                                                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                                                                                                     <CheckCircle className="h-4 w-4 mr-1.5" />
