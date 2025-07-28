@@ -6,26 +6,35 @@ import LogoutModal from '../../components/admin/LogoutModal';
 import { useLogoutModal } from '../../hooks/useLogoutModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import LaporanTable from '../../components/admin/LaporanTable';
+import AllLaporanTable from '../../components/admin/AllLaporanTable';
 import LaporanTriwulanForm from '../../components/admin/LaporanTriwulanForm';
 import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
 import ProgramProgressIndicator from '../../components/admin/ProgramProgressIndicator';
 import StatusKinerjaManager from '../../components/admin/StatusKinerjaManager';
 import { Plus, ArrowLeft, User, MapPin, Phone, Eye } from 'lucide-react';
+import { getAllPeternak } from '../../services/peternakService';
 import {
-    // Unused functions removed for now
+    getAllLaporan,
+    getLaporanByPeternak,
+    createLaporan,
+    updateLaporan,
+    deleteLaporan
 } from '../../services/laporanService';
-import { getAllPeternak, getPeternakById } from '../../services/peternakService';
-import { getLaporanByPeternak, createLaporan, updateLaporan, deleteLaporan } from '../../services/laporanService';
+import { useLaporanNotification } from '../../hooks/useLaporanNotification';
+import NotificationToast from '../../components/common/NotificationToast';
 
 const LaporanPeternak = () => {
     const navigate = useNavigate();
     const [peternakData, setPeternakData] = useState([]);
-    const [laporanData, setLaporanData] = useState([]);
+    // eslint-disable-next-line no-unused-vars
+    const [laporanData, setLaporanData] = useState([]); // untuk detail view per-peternak (filtered data)
+    const [allLaporanData, setAllLaporanData] = useState([]); // untuk calculation & AllLaporanTable (semua data)
     const [loading, setLoading] = useState(true);
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState(''); // untuk dropdown filter
     const [selectedPeternakId, setSelectedPeternakId] = useState(null);
     const [selectedTriwulan, setSelectedTriwulan] = useState('');
     const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear());
+    const [showAllLaporan, setShowAllLaporan] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState('peternak'); // 'peternak', 'laporan', 'add', 'edit'
     const [editingLaporan, setEditingLaporan] = useState(null);
@@ -41,6 +50,17 @@ const LaporanPeternak = () => {
     } = useLogoutModal();
     const [deleteLoading, setDeleteLoading] = useState(false);
 
+    // Notification hook
+    const {
+        notification,
+        clearNotification,
+        notifyLoadSuccess,
+        notifyLoadError,
+        notifyDeleteSuccess,
+        notifyDeleteError,
+        notifyActionConfirm
+    } = useLaporanNotification();
+
     useEffect(() => {
         const fetchData = async () => {
             setLoading(true);
@@ -49,17 +69,30 @@ const LaporanPeternak = () => {
                 const peternakList = await getAllPeternak();
                 setPeternakData(peternakList);
 
+                // Selalu ambil semua laporan terlebih dahulu untuk menghitung total per peternak
+                const allLaporanList = await getAllLaporan();
+                setAllLaporanData(allLaporanList);
+                console.log('All laporan data:', allLaporanList);
+
                 // Jika filter peternak dipilih, ambil laporan dari firebase
                 if (selectedPeternakFilter) {
                     const laporanList = await getLaporanByPeternak(selectedPeternakFilter);
-                    await setLaporanData(laporanList);
-                    console.log('Laporan data:', laporanList);
+                    setLaporanData(laporanList);
+                    console.log('Laporan data for selected peternak:', laporanList);
+
+                    // Show success notification untuk laporan yang difilter
+                    notifyLoadSuccess(laporanList.length);
                 } else {
-                    // Jika ingin menampilkan semua laporan, bisa ambil semua laporan dari semua peternak (opsional)
+                    // Jika tidak ada filter, kosongkan laporanData
                     setLaporanData([]);
+
+                    // Show success notification untuk semua laporan
+                    notifyLoadSuccess(allLaporanList.length);
                 }
+
             } catch (error) {
-                // handle error
+                console.error('Error fetching data:', error);
+                notifyLoadError(error.message);
             }
             setLoading(false);
         };
@@ -72,28 +105,25 @@ const LaporanPeternak = () => {
         }
 
         fetchData();
-    }, [navigate, selectedPeternakFilter]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [navigate, selectedPeternakFilter, showAllLaporan]);
 
-    const getPeternakByIdLocal = async (peternakId) => {
-        try {
-            return await getPeternakById(peternakId);
-        } catch {
-            return null;
-        }
-    };
-
-    // Helper functions
     const getPeternakById = (peternakId) => {
         return peternakData.find(p => p.id === peternakId);
     };
 
     const getPeternakLaporan = (peternakId) => {
-        return laporanData.filter(laporan => laporan.peternakId === peternakId);
+        // Gunakan allLaporanData untuk mendapatkan semua laporan peternak, bukan laporanData yang mungkin difilter
+        return allLaporanData.filter(laporan => laporan.idPeternak === peternakId);
     };
 
     const getLatestLaporan = (peternakId) => {
         const laporan = getPeternakLaporan(peternakId);
         return laporan.length > 0 ? laporan[laporan.length - 1] : null;
+    };
+
+    const getTotalLaporanByPeternak = (peternakId) => {
+        return getPeternakLaporan(peternakId).length;
     };
 
     const getTriwulanLabel = (triwulan) => {
@@ -130,7 +160,7 @@ const LaporanPeternak = () => {
     const peternakOptions = peternakData.map(peternak => ({
         value: peternak.id,
         label: peternak.namaLengkap,
-        subtitle: `${peternak.statusKinerja} • ${peternak.totalLaporan} laporan`,
+        subtitle: `${peternak.statusKinerja} • ${getTotalLaporanByPeternak(peternak.id)} laporan`,
     }));
 
     const defaultPeternakOption = {
@@ -156,12 +186,24 @@ const LaporanPeternak = () => {
     ];
 
     const getFilteredLaporanByPeternak = (peternakId) => {
-        return laporanData.filter(laporan => {
-            const matchPeternak = laporan.peternakId === peternakId;
-            const matchTriwulan = selectedTriwulan === '' || laporan.quarterNumber?.toString() === selectedTriwulan;
-            const matchTahun = selectedTahun === '' || laporan.quarterInfo?.year === selectedTahun;
-            return matchPeternak && matchTriwulan && matchTahun;
+        // Gunakan allLaporanData untuk filter, bukan laporanData
+        const peternakLaporan = allLaporanData.filter(laporan => laporan.idPeternak === peternakId);
+
+        return peternakLaporan.filter(laporan => {
+            const matchTriwulan = selectedTriwulan === '' || laporan.quarter?.toString() === selectedTriwulan;
+            const matchTahun = selectedTahun === '' || laporan.year === selectedTahun;
+            return matchTriwulan && matchTahun;
         });
+    };
+
+    const handleToggleAllLaporan = () => {
+        setShowAllLaporan(!showAllLaporan);
+        if (!showAllLaporan) {
+            // Ketika beralih ke mode semua laporan, reset filter
+            setSelectedPeternakFilter('');
+            setSelectedTriwulan('');
+            setSelectedTahun('');
+        }
     };
 
     // Event handlers
@@ -237,14 +279,31 @@ const LaporanPeternak = () => {
 
     const handleDeleteLaporan = async () => {
         if (!deletingLaporan) return;
+
         setDeleteLoading(true);
+
         try {
+            // Show processing notification
+            const peternakName = getPeternakById(deletingLaporan.idPeternak)?.namaLengkap || 'Peternak';
+            notifyActionConfirm('Menghapus laporan', peternakName);
+
             await deleteLaporan(deletingLaporan.id);
+
+            // Refresh data
             const laporanList = await getLaporanByPeternak(selectedPeternakId);
             setLaporanData(laporanList);
+
+            // Show success notification
+            notifyDeleteSuccess(
+                peternakName,
+                deletingLaporan.quarter || deletingLaporan.quarterNumber || deletingLaporan.triwulan,
+                deletingLaporan.year || deletingLaporan.quarterInfo?.year || deletingLaporan.tahun
+            );
+
             setDeletingLaporan(null);
         } catch (error) {
             console.error('Error deleting laporan:', error);
+            notifyDeleteError(error.message);
         } finally {
             setDeleteLoading(false);
         }
@@ -290,119 +349,156 @@ const LaporanPeternak = () => {
                             <>
                                 {/* Header */}
                                 <div className="mb-6 sm:mb-8">
-                                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Laporan Monitoring Peternak</h1>
-                                    <p className="text-gray-600 mt-2">
-                                        Pilih peternak untuk melihat dan mengelola laporan triwulan mereka
-                                    </p>
-                                </div>
-
-                                {/* Search */}
-                                <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
-                                    <div className="w-full">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Filter Peternak
-                                        </label>
-                                        <SearchableDropdown
-                                            options={peternakOptions}
-                                            value={selectedPeternakFilter}
-                                            onChange={setSelectedPeternakFilter}
-                                            placeholder="Pilih peternak..."
-                                            defaultOption={defaultPeternakOption}
-                                            searchPlaceholder="Cari nama peternak..."
-                                            displayKey="label"
-                                            valueKey="value"
-                                            searchKeys={['label', 'subtitle']}
-                                            noResultsText="Tidak ada peternak ditemukan"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Peternak Table */}
-                                <div className="bg-white rounded-lg shadow overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50">
-                                                <tr>
-                                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Peternak
-                                                    </th>
-                                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Total Laporan
-                                                    </th>
-                                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Laporan Terakhir
-                                                    </th>
-                                                    <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                        Detail
-                                                    </th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {filteredPeternak.map((peternak) => {
-                                                    const latestLaporan = getLatestLaporan(peternak.id);
-
-                                                    return (
-                                                        <tr
-                                                            key={peternak.id}
-                                                            className="hover:bg-gray-50 cursor-pointer transition-colors"
-                                                            onClick={() => handleViewPeternakDetail(peternak.id)}
-                                                            title="Klik untuk melihat detail laporan"
-                                                        >
-                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                                                                <div className="flex items-center">
-                                                                    <User className="h-9 w-9 sm:h-10 sm:w-10 text-gray-400 bg-gray-100 rounded-full p-2 mr-3 flex-shrink-0" />
-                                                                    <div>
-                                                                        <div className="text-sm font-medium text-gray-900">
-                                                                            {peternak.namaLengkap}
-                                                                        </div>
-                                                                        <div className="mt-1">
-                                                                            {getStatusBadge(peternak.statusKinerja)}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                    {peternak.totalLaporan} laporan
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                {latestLaporan ? (
-                                                                    <div className="text-sm">
-                                                                        <div className="font-medium text-gray-900">
-                                                                            Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarterNumber || latestLaporan.triwulan]}
-                                                                        </div>
-                                                                        <div className="text-gray-500 text-xs">
-                                                                            {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID')}
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <span className="text-gray-500 text-sm">-</span>
-                                                                )}
-                                                            </td>
-                                                            <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 mx-auto" />
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* Empty State */}
-                                    {filteredPeternak.length === 0 && (
-                                        <div className="text-center py-12">
-                                            <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                                            <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                                Tidak ada peternak ditemukan
-                                            </h3>
-                                            <p className="text-gray-500">
-                                                Coba ubah kata kunci pencarian.
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Laporan Monitoring Peternak</h1>
+                                            <p className="text-gray-600 mt-2">
+                                                {showAllLaporan
+                                                    ? 'Tampilkan semua laporan dari seluruh peternak'
+                                                    : 'Pilih peternak untuk melihat dan mengelola laporan triwulan mereka'
+                                                }
                                             </p>
                                         </div>
-                                    )}
+                                        <div className="mt-4 sm:mt-0">
+                                            <button
+                                                onClick={handleToggleAllLaporan}
+                                                className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
+                                                        ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
+                                                        : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
+                                                    }`}
+                                            >
+                                                {showAllLaporan ? 'Lihat Per Peternak' : 'Lihat Semua Laporan'}
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                {showAllLaporan ? (
+                                    // Tampilan Semua Laporan
+                                    <>
+                                        <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
+                                            <div className="text-sm text-gray-500 mb-4">
+                                                Menampilkan <span className="font-medium">{allLaporanData.length}</span> laporan dari seluruh peternak
+                                            </div>
+                                        </div>
+                                        <AllLaporanTable
+                                            laporan={allLaporanData}
+                                            peternakData={peternakData}
+                                        />
+                                    </>
+                                ) : (
+                                    // Tampilan List Peternak (existing)
+                                    <>
+                                        {/* Search */}
+                                        <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
+                                            <div className="w-full">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Filter Peternak
+                                                </label>
+                                                <SearchableDropdown
+                                                    options={peternakOptions}
+                                                    value={selectedPeternakFilter}
+                                                    onChange={setSelectedPeternakFilter}
+                                                    placeholder="Pilih peternak..."
+                                                    defaultOption={defaultPeternakOption}
+                                                    searchPlaceholder="Cari nama peternak..."
+                                                    displayKey="label"
+                                                    valueKey="value"
+                                                    searchKeys={['label', 'subtitle']}
+                                                    noResultsText="Tidak ada peternak ditemukan"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Peternak Table */}
+                                        <div className="bg-white rounded-lg shadow overflow-hidden">
+                                            <div className="overflow-x-auto">
+                                                <table className="min-w-full divide-y divide-gray-200">
+                                                    <thead className="bg-gray-50">
+                                                        <tr>
+                                                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Peternak
+                                                            </th>
+                                                            <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Total Laporan
+                                                            </th>
+                                                            <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Laporan Terakhir
+                                                            </th>
+                                                            <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Detail
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="bg-white divide-y divide-gray-200">
+                                                        {filteredPeternak.map((peternak) => {
+                                                            const latestLaporan = getLatestLaporan(peternak.id);
+                                                            const totalLaporanPeternak = getTotalLaporanByPeternak(peternak.id);
+
+                                                            return (
+                                                                <tr
+                                                                    key={peternak.id}
+                                                                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                                                    onClick={() => handleViewPeternakDetail(peternak.id)}
+                                                                    title="Klik untuk melihat detail laporan"
+                                                                >
+                                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                                                        <div className="flex items-center">
+                                                                            <User className="h-9 w-9 sm:h-10 sm:w-10 text-gray-400 bg-gray-100 rounded-full p-2 mr-3 flex-shrink-0" />
+                                                                            <div>
+                                                                                <div className="text-sm font-medium text-gray-900">
+                                                                                    {peternak.namaLengkap}
+                                                                                </div>
+                                                                                <div className="mt-1">
+                                                                                    {getStatusBadge(peternak.statusKinerja)}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                            {totalLaporanPeternak} laporan
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                                                                        {latestLaporan ? (
+                                                                            <div className="text-sm">
+                                                                                <div className="font-medium text-gray-900">
+                                                                                    Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan]}
+                                                                                </div>
+                                                                                <div className="text-gray-500 text-xs">
+                                                                                    {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID')}
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span className="text-gray-500 text-sm">-</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
+                                                                        <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 mx-auto" />
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {/* Empty State */}
+                                            {filteredPeternak.length === 0 && (
+                                                <div className="text-center py-12">
+                                                    <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                                        Tidak ada peternak ditemukan
+                                                    </h3>
+                                                    <p className="text-gray-500">
+                                                        Coba ubah kata kunci pencarian.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </>
                         ) : viewMode === 'laporan' ? (
                             // Tampilan Detail Laporan Peternak
@@ -446,7 +542,7 @@ const LaporanPeternak = () => {
                                                                 <div className="text-sm text-gray-700">
                                                                     <span className="font-medium">Laporan Terakhir: </span>
                                                                     <span className="font-medium text-gray-900">
-                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarterNumber || latestLaporan.triwulan]} {latestLaporan.quarterInfo?.year || latestLaporan.tahun}
+                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan]} {latestLaporan.year || latestLaporan.quarterInfo?.year || latestLaporan.tahun}
                                                                     </span>
                                                                     <span className="mx-1">•</span>
                                                                     <span>
@@ -642,6 +738,14 @@ const LaporanPeternak = () => {
                 onClose={closeLogoutModal}
                 onConfirm={confirmLogout}
                 userName={userToLogout?.fullName}
+            />
+
+            {/* Notification Toast */}
+            <NotificationToast
+                notification={notification}
+                onClose={clearNotification}
+                position="top-right"
+                autoHideDuration={5000}
             />
         </div>
     );

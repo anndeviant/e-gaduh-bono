@@ -6,6 +6,8 @@ import {
     createLaporan,
     updateLaporan
 } from '../../services/laporanService';
+import { useLaporanNotification } from '../../hooks/useLaporanNotification';
+import NotificationToast from '../common/NotificationToast';
 
 const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
@@ -16,7 +18,8 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
         jumlah_saat_ini: '',
         kendala: '',
         solusi: '',
-        keterangan: ''
+        keterangan: '',
+        tanggal_laporan: new Date().toISOString().split('T')[0] // Default hari ini
     });
 
     const [quarterInfo, setQuarterInfo] = useState(null);
@@ -25,6 +28,18 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [canCreateReport, setCanCreateReport] = useState(false);
+
+    // Notification hook
+    const {
+        notification,
+        clearNotification,
+        notifyCreateSuccess,
+        notifyCreateError,
+        notifyUpdateSuccess,
+        notifyUpdateError,
+        notifyValidationError,
+        notifyActionConfirm
+    } = useLaporanNotification();
 
     useEffect(() => {
         const loadQuarterInfo = async () => {
@@ -70,7 +85,8 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                         setFormData(prev => ({
                             ...prev,
                             jumlah_awal: prefill.jumlah_awal.toString(),
-                            jumlah_saat_ini: prefill.jumlah_awal.toString()
+                            jumlah_saat_ini: prefill.jumlah_awal.toString(),
+                            tanggal_laporan: new Date().toISOString().split('T')[0]
                         }));
 
                     } else {
@@ -97,7 +113,8 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                         setFormData(prev => ({
                             ...prev,
                             jumlah_awal: prefill.jumlah_awal.toString(),
-                            jumlah_saat_ini: prefill.jumlah_awal.toString()
+                            jumlah_saat_ini: prefill.jumlah_awal.toString(),
+                            tanggal_laporan: new Date().toISOString().split('T')[0]
                         }));
                     }
 
@@ -105,14 +122,15 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                     // Mode edit laporan existing
                     setCanCreateReport(true);
                     setFormData({
-                        jumlah_awal: laporan.jumlah_awal?.toString() || '',
-                        jumlah_lahir: laporan.jumlah_lahir?.toString() || '',
-                        jumlah_mati: laporan.jumlah_mati?.toString() || '',
-                        jumlah_dijual: laporan.jumlah_dijual?.toString() || '',
-                        jumlah_saat_ini: laporan.jumlah_saat_ini?.toString() || '',
+                        jumlah_awal: laporan.jumlahTernakAwal?.toString() || laporan.jumlah_awal?.toString() || '',
+                        jumlah_lahir: laporan.jumlahLahir?.toString() || laporan.jumlah_lahir?.toString() || '',
+                        jumlah_mati: laporan.jumlahKematian?.toString() || laporan.jumlah_mati?.toString() || '',
+                        jumlah_dijual: laporan.jumlahTerjual?.toString() || laporan.jumlah_dijual?.toString() || '',
+                        jumlah_saat_ini: laporan.jumlahTernakSaatIni?.toString() || laporan.jumlah_saat_ini?.toString() || '',
                         kendala: laporan.kendala || '',
                         solusi: laporan.solusi || '',
-                        keterangan: laporan.keterangan || ''
+                        keterangan: laporan.catatan || laporan.keterangan || '',
+                        tanggal_laporan: laporan.tanggalLaporan || new Date().toISOString().split('T')[0]
                     });
 
                     // Set quarter info dari laporan yang sedang diedit
@@ -188,7 +206,25 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
             newErrors.logika = 'Total kambing yang mati dan dijual tidak boleh melebihi jumlah awal';
         }
 
+        // Validasi tanggal laporan
+        if (!formData.tanggal_laporan.trim()) {
+            newErrors.tanggal_laporan = 'Tanggal laporan harus diisi';
+        } else {
+            const selectedDate = new Date(formData.tanggal_laporan);
+            const today = new Date();
+            if (selectedDate > today) {
+                newErrors.tanggal_laporan = 'Tanggal laporan tidak boleh di masa depan';
+            }
+        }
+
         setErrors(newErrors);
+
+        // Show validation notification if there are errors
+        if (Object.keys(newErrors).length > 0) {
+            const firstError = Object.values(newErrors)[0];
+            notifyValidationError(firstError);
+        }
+
         return Object.keys(newErrors).length === 0;
     };
 
@@ -200,15 +236,19 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
     };
 
     const handleSubmit = async (e) => {
+        e.preventDefault();
 
         if (loading) return;
-        setLoading(true);
 
-        e.preventDefault();
         if (!validateForm()) return;
 
         setLoading(true);
+
         try {
+            // Show processing notification
+            const action = laporan ? 'Memperbarui' : 'Menyimpan';
+            notifyActionConfirm(action, peternakData?.namaLengkap || 'peternak ini');
+
             // Hanya kirim field yang dibutuhkan Firestore
             const dataToSave = {
                 idPeternak: peternakId,
@@ -226,19 +266,36 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                 catatan: formData.keterangan || "",
                 kendala: formData.kendala || "",
                 solusi: formData.solusi || "",
-                dibuatTanggal: new Date().toISOString().split('T')[0],
+                tanggalLaporan: formData.tanggal_laporan,
             };
 
             let result;
             if (laporan) {
                 result = await updateLaporan(laporan.id, dataToSave);
+                notifyUpdateSuccess(
+                    peternakData?.namaLengkap || 'Peternak',
+                    dataToSave.quarter,
+                    dataToSave.year
+                );
             } else {
                 result = await createLaporan(dataToSave);
+                notifyCreateSuccess(
+                    peternakData?.namaLengkap || 'Peternak',
+                    dataToSave.quarter,
+                    dataToSave.year
+                );
             }
 
             onSave(result);
         } catch (error) {
             console.error('Error saving laporan:', error);
+
+            if (laporan) {
+                notifyUpdateError(error.message);
+            } else {
+                notifyCreateError(error.message);
+            }
+
             setErrors({ submit: error.message });
         } finally {
             setLoading(false);
@@ -327,6 +384,29 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                 {/* Data Ternak */}
                 <div>
                     <h4 className="text-lg font-medium text-gray-900 mb-4">Data Kambing Triwulan Ini</h4>
+
+                    {/* Tanggal Laporan */}
+                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Tanggal Laporan Pertemuan *
+                        </label>
+                        <input
+                            type="date"
+                            name="tanggal_laporan"
+                            value={formData.tanggal_laporan}
+                            onChange={handleChange}
+                            max={new Date().toISOString().split('T')[0]} // Tidak boleh pilih tanggal masa depan
+                            className={`block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${errors.tanggal_laporan
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                }`}
+                        />
+                        <p className="mt-1 text-xs text-blue-600">
+                            Tanggal saat pertemuan dilakukan untuk pencatatan laporan triwulan ini
+                        </p>
+                        {errors.tanggal_laporan && <p className="mt-1 text-sm text-red-600">{errors.tanggal_laporan}</p>}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Jumlah Awal */}
                         <div>
@@ -507,6 +587,14 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                     </button>
                 </div>
             </form>
+
+            {/* Notification Toast */}
+            <NotificationToast
+                notification={notification}
+                onClose={clearNotification}
+                position="top-right"
+                autoHideDuration={5000}
+            />
         </div>
     );
 };

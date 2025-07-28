@@ -29,7 +29,7 @@ export const createLaporan = async (laporanData) => {
       "jumlahTernakAwal",
       "jumlahTernakSaatIni",
       "targetPengembalian",
-      "dibuatTanggal"
+      "tanggalLaporan",
     ];
     for (const field of requiredFields) {
       if (
@@ -41,10 +41,39 @@ export const createLaporan = async (laporanData) => {
       }
     }
 
-    const docRef = await addDoc(collection(db, COLLECTION_LAPORAN), laporanData);
-    return { id: docRef.id, ...laporanData };
+    // Pastikan tanggal laporan menggunakan format yang benar
+    const finalData = {
+      ...laporanData,
+      tanggalLaporan:
+        laporanData.tanggalLaporan || new Date().toISOString().split("T")[0],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const docRef = await addDoc(collection(db, COLLECTION_LAPORAN), finalData);
+    return { id: docRef.id, ...finalData };
   } catch (error) {
     console.error("Error creating laporan:", error);
+    throw error;
+  }
+};
+
+// READ ALL LAPORAN
+export const getAllLaporan = async () => {
+  try {
+    const laporanQuery = query(
+      collection(db, COLLECTION_LAPORAN),
+      orderBy("year", "desc"),
+      orderBy("quarter", "desc"),
+      orderBy("tanggalLaporan", "desc")
+    );
+    const querySnapshot = await getDocs(laporanQuery);
+    return querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error getting all laporan:", error);
     throw error;
   }
 };
@@ -55,6 +84,7 @@ export const getLaporanByPeternak = async (idPeternak) => {
     const laporanQuery = query(
       collection(db, COLLECTION_LAPORAN),
       where("idPeternak", "==", idPeternak),
+      orderBy("year", "asc"),
       orderBy("quarter", "asc")
     );
     const querySnapshot = await getDocs(laporanQuery);
@@ -85,8 +115,13 @@ export const getLaporanById = async (laporanId) => {
 // UPDATE
 export const updateLaporan = async (laporanId, updateData) => {
   try {
-    await updateDoc(doc(db, COLLECTION_LAPORAN, laporanId), updateData);
-    return { id: laporanId, ...updateData };
+    const finalUpdateData = {
+      ...updateData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    await updateDoc(doc(db, COLLECTION_LAPORAN, laporanId), finalUpdateData);
+    return { id: laporanId, ...finalUpdateData };
   } catch (error) {
     console.error("Error updating laporan:", error);
     throw error;
@@ -103,7 +138,6 @@ export const deleteLaporan = async (laporanId) => {
     throw error;
   }
 };
-
 
 export const getNextAllowedQuarter = async (idPeternak) => {
   try {
@@ -126,7 +160,7 @@ export const getNextAllowedQuarter = async (idPeternak) => {
     console.error("Error getting next allowed quarter:", error);
     throw error;
   }
-}
+};
 
 export const calculatePrefillData = async (idPeternak) => {
   try {

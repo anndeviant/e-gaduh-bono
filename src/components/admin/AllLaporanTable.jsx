@@ -1,6 +1,6 @@
-import { Calendar, Edit, Trash2, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Calendar, AlertCircle, CheckCircle, Info, User } from 'lucide-react';
 
-const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
+const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
     const getBadgeColor = (type, value) => {
         const colors = {
             'lahir': 'bg-green-100 text-green-800',
@@ -12,6 +12,7 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
     };
 
     const formatDate = (dateString) => {
+        if (!dateString) return { formatted: '-', daysAgo: 0 };
         const date = new Date(dateString);
         return {
             formatted: date.toLocaleDateString('id-ID', {
@@ -23,13 +24,18 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
         };
     };
 
+    const getPeternakName = (idPeternak) => {
+        const peternak = peternakData.find(p => p.id === idPeternak);
+        return peternak ? peternak.namaLengkap : 'Peternak tidak ditemukan';
+    };
+
     if (!laporan || laporan.length === 0) {
         return (
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="text-center py-12">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada laporan</h3>
-                    <p className="text-gray-500">Laporan triwulan akan ditampilkan di sini</p>
+                    <p className="text-gray-500">Laporan triwulan dari semua peternak akan ditampilkan di sini</p>
                 </div>
             </div>
         );
@@ -41,6 +47,10 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
+                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
+                                style={{ minWidth: '160px' }}>
+                                Peternak
+                            </th>
                             <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
                                 style={{ minWidth: '140px' }}>
                                 Periode
@@ -69,16 +79,23 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                 style={{ minWidth: '140px' }}>
                                 Tanggal Lapor
                             </th>
-                            <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap"
-                                style={{ minWidth: '100px' }}>
-                                Aksi
-                            </th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                         {laporan.map((item) => {
+                            const dateInfo = formatDate(item.tanggalLaporan);
                             return (
                                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                                    {/* Peternak */}
+                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center">
+                                            <User className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
+                                            <div className="text-sm font-medium text-gray-900">
+                                                {getPeternakName(item.idPeternak)}
+                                            </div>
+                                        </div>
+                                    </td>
+
                                     {/* Periode */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
@@ -132,30 +149,10 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                     {/* Tanggal Lapor */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                                         <div className="text-sm text-gray-900">
-                                            {formatDate(item.tanggalLaporan).formatted}
+                                            {dateInfo.formatted}
                                         </div>
                                         <div className="text-xs text-gray-500">
-                                            {formatDate(item.tanggalLaporan).daysAgo} hari lalu
-                                        </div>
-                                    </td>
-
-                                    {/* Aksi */}
-                                    <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center space-x-2">
-                                            <button
-                                                onClick={() => onEdit(item)}
-                                                className="text-blue-600 hover:text-blue-900 transition-colors p-1"
-                                                title="Edit"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => onDelete(item)}
-                                                className="text-red-600 hover:text-red-900 transition-colors p-1"
-                                                title="Hapus"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
+                                            {dateInfo.daysAgo} hari lalu
                                         </div>
                                     </td>
                                 </tr>
@@ -169,7 +166,7 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                     <td colSpan="8" className="px-4 sm:px-6 py-4">
                                         <div className="space-y-3">
                                             <div className="text-xs font-medium text-gray-700 border-b border-gray-200 pb-2">
-                                                Detail Laporan Triwulan {item.quarter || item.quarterNumber || item.triwulan} {item.year || item.quarterInfo?.year || item.tahun}
+                                                Detail Laporan {getPeternakName(item.idPeternak)} - Triwulan {item.quarter || item.quarterNumber || item.triwulan} {item.year || item.quarterInfo?.year || item.tahun}
                                             </div>
 
                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">
@@ -230,4 +227,4 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
     );
 };
 
-export default LaporanTable;
+export default AllLaporanTable;
