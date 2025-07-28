@@ -7,7 +7,7 @@ import {
 import { useLaporanNotification } from '../../hooks/useLaporanNotification';
 import NotificationToast from '../common/NotificationToast';
 
-const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) => {
+const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCancel, triwulan }) => {
     const [formData, setFormData] = useState({
         jumlah_awal: '',
         jumlah_lahir: '',
@@ -48,7 +48,7 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                     if (peternakData) {
                         // Mode development - simulasi dengan data peternak yang ada
                         const mockExistingReports = []; // Kosong untuk simulasi peternak baru
-                        let nextQuarter = 1;
+                        let nextQuarter = triwulan + 1;
 
                         // Validasi maksimal 8 triwulan
                         if (nextQuarter > 8) {
