@@ -5,8 +5,8 @@ import Navbar from '../../components/admin/Navbar';
 import LogoutModal from '../../components/admin/LogoutModal';
 import { useLogoutModal } from '../../hooks/useLogoutModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
-import { Plus, User, ChevronDown, ChevronUp, Edit, Trash2, Mail, MapPin, Calendar, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
-import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
+import { Plus, User, ChevronDown, ChevronUp, Edit, Trash2, Phone, MapPin, Calendar, CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
+import CommonDeleteModal from '../../components/common/CommonDeleteModal';
 import PeternakForm from '../../components/admin/PeternakForm';
 import {
     getAllPeternak,
@@ -90,27 +90,24 @@ const PeternakManagement = () => {
     };
 
     const handleSavePeternak = async (formData) => {
+        console.log('handleSavePeternak called with:', formData);
         setLoading(true);
         try {
-            // Pastikan statusKinerja ada, jika tidak isi default
-            if (!formData.statusKinerja) {
-                formData.statusKinerja = "Baik";
-            }
-            // Pastikan statusSiklus ada, jika tidak isi default
-            if (!formData.statusSiklus) {
-                formData.statusSiklus = "Belum Dimulai"; // atau nilai default lain sesuai kebutuhan
-            }
+            // Logic ternak sesuai permintaan baru
+            formData.jumlahTernakAwal = Number(formData.jumlahTernakAwal) || 5;
+            formData.targetPengembalian = Number(formData.targetPengembalian) || 6;
 
-            // Logic ternak
-            // jumlahTernakAwal dari form, jumlahTernakSaatIni = 0, targetPengembalian = jumlahTernakAwal + Math.floor(jumlahTernakAwal / 5)
-            formData.jumlahTernakAwal = Number(formData.jumlahTernakAwal) || 0;
-            formData.jumlahTernakSaatIni = 0; 
-            formData.targetPengembalian = formData.jumlahTernakAwal + 1;
+            // Remove jumlahTernakSaatIni from form data - it will only exist in laporan
+            const { jumlahTernakSaatIni, ...cleanFormData } = formData;
+
+            console.log('Final data to save:', cleanFormData);
 
             if (view === 'edit' && editingPeternak) {
-                await updatePeternak(editingPeternak.id, formData);
+                const result = await updatePeternak(editingPeternak.id, cleanFormData);
+                console.log('Update result:', result);
             } else {
-                await createPeternak(formData);
+                const result = await createPeternak(cleanFormData);
+                console.log('Create result:', result);
             }
             // Refresh data
             const data = await getAllPeternak();
@@ -118,7 +115,9 @@ const PeternakManagement = () => {
             setView('list');
             setEditingPeternak(null);
         } catch (error) {
-            // handle error jika perlu
+            console.error('Error saving peternak:', error);
+            // Tampilkan error ke user jika perlu
+            alert(`Error: ${error.message}`);
         }
         setLoading(false);
     };
@@ -146,19 +145,6 @@ const PeternakManagement = () => {
     const filteredPeternak = selectedPeternakFilter ?
         peternak.filter(p => p.id === selectedPeternakFilter) :
         peternak;
-
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            'Baik': 'bg-green-100 text-green-800',
-            'Perhatian': 'bg-yellow-100 text-yellow-800',
-            'Bermasalah': 'bg-red-100 text-red-800'
-        };
-        return (
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[status] || 'bg-gray-100 text-gray-800'}`}>
-                {status}
-            </span>
-        );
-    };
 
     if (loading) {
         return (
@@ -226,7 +212,6 @@ const PeternakManagement = () => {
                                                 <tr>
                                                     <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Peternak</th>
                                                     <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nomor Telepon</th>
-                                                    <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status Kinerja</th>
                                                     <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Detail</th>
                                                 </tr>
                                             </thead>
@@ -250,7 +235,6 @@ const PeternakManagement = () => {
                                                                     </div>
                                                                 </td>
                                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{p.nomorTelepon}</td>
-                                                                <td className="px-4 sm:px-6 py-4 whitespace-nowrap">{getStatusBadge(p.statusKinerja)}</td>
                                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                                                     <button className="text-gray-400 hover:text-green-600">
                                                                         {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
@@ -259,7 +243,7 @@ const PeternakManagement = () => {
                                                             </tr>
                                                             {isExpanded && (
                                                                 <tr key={`${p.id}-detail`} className="bg-gray-50">
-                                                                    <td colSpan={4} className="px-4 sm:px-6 py-4">
+                                                                    <td colSpan={3} className="px-4 sm:px-6 py-4">
                                                                         <div className="bg-white rounded-lg p-4 sm:p-6 animate-in slide-in-from-top-2 duration-300">
                                                                             <div className="relative">
                                                                                 <div className="absolute top-0 right-0 flex items-center space-x-2">
@@ -268,17 +252,17 @@ const PeternakManagement = () => {
                                                                                 </div>
                                                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                                                                                     <div className="flex items-start space-x-3">
-                                                                                        <Mail className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
-                                                                                        <div>
-                                                                                            <p className="text-xs text-gray-500">Email</p>
-                                                                                            <p className="text-sm font-medium text-gray-800">{p.email}</p>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                    <div className="flex items-start space-x-3">
                                                                                         <User className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
                                                                                         <div>
                                                                                             <p className="text-xs text-gray-500">Jenis Kelamin</p>
                                                                                             <p className="text-sm font-medium text-gray-800">{p.jenisKelamin}</p>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div className="flex items-start space-x-3">
+                                                                                        <Phone className="h-4 w-4 text-gray-400 mt-1 flex-shrink-0" />
+                                                                                        <div>
+                                                                                            <p className="text-xs text-gray-500">Nomor Telepon</p>
+                                                                                            <p className="text-sm font-medium text-gray-800">{p.nomorTelepon}</p>
                                                                                         </div>
                                                                                     </div>
                                                                                     <div className="flex items-start space-x-3 md:col-span-2">
@@ -299,20 +283,16 @@ const PeternakManagement = () => {
                                                                                 <div className="mt-6 pt-4 border-t">
                                                                                     <h4 className="text-sm font-semibold text-gray-800 mb-3">Informasi Program</h4>
                                                                                     {p.statusSiklus ? (
-                                                                                        <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+                                                                                        <div className="grid grid-cols-2 gap-2 sm:gap-4 text-center">
                                                                                             <div className="bg-blue-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-blue-700">Ternak Awal</p>
                                                                                                 <p className="text-lg font-bold text-blue-800">{p.jumlahTernakAwal}</p>
-                                                                                            </div>
-                                                                                            <div className="bg-green-50 p-3 rounded-lg">
-                                                                                                <p className="text-xs text-green-700">Ternak Saat Ini</p>
-                                                                                                <p className="text-lg font-bold text-green-800">{p.jumlahTernakSaatIni}</p>
                                                                                             </div>
                                                                                             <div className="bg-yellow-50 p-3 rounded-lg">
                                                                                                 <p className="text-xs text-yellow-700">Wajib Kembali</p>
                                                                                                 <p className="text-lg font-bold text-yellow-800">{p.targetPengembalian}</p>
                                                                                             </div>
-                                                                                            <div className="col-span-3 mt-2">
+                                                                                            <div className="col-span-2 mt-2">
                                                                                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                                                                                                     <CheckCircle className="h-4 w-4 mr-1.5" />
                                                                                                     Status Siklus: {p.statusSiklus}
@@ -367,8 +347,9 @@ const PeternakManagement = () => {
             </div>
 
             {deletingPeternak && (
-                <DeleteConfirmModal
-                    admin={deletingPeternak}
+                <CommonDeleteModal
+                    item={deletingPeternak}
+                    type="peternak"
                     onConfirm={handleDeletePeternak}
                     onCancel={() => setDeletingPeternak(null)}
                     loading={deleteLoading}

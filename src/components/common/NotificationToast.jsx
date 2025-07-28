@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
+import { Check, X, AlertTriangle, Info as InfoIcon } from 'lucide-react';
 
 const NotificationToast = ({
     notification,
@@ -40,32 +40,51 @@ const NotificationToast = ({
     if (!notification || !isVisible) return null;
 
     const getIcon = (type) => {
-        const iconProps = { className: "h-5 w-5", strokeWidth: 2 };
+        const iconProps = {
+            className: "h-4 w-4",
+            strokeWidth: 2.5
+        };
 
         switch (type) {
             case 'success':
-                return <CheckCircle {...iconProps} className="h-5 w-5 text-green-600" />;
+                return (
+                    <div className="flex items-center justify-center w-6 h-6 bg-green-500 rounded-full">
+                        <Check {...iconProps} className="h-3.5 w-3.5 text-white" />
+                    </div>
+                );
             case 'error':
-                return <XCircle {...iconProps} className="h-5 w-5 text-red-600" />;
+                return (
+                    <div className="flex items-center justify-center w-6 h-6 bg-red-500 rounded-full">
+                        <X {...iconProps} className="h-3.5 w-3.5 text-white" />
+                    </div>
+                );
             case 'warning':
-                return <AlertCircle {...iconProps} className="h-5 w-5 text-yellow-600" />;
+                return (
+                    <div className="flex items-center justify-center w-6 h-6 bg-amber-500 rounded-full">
+                        <AlertTriangle {...iconProps} className="h-3.5 w-3.5 text-white" />
+                    </div>
+                );
             case 'info':
             default:
-                return <Info {...iconProps} className="h-5 w-5 text-blue-600" />;
+                return (
+                    <div className="flex items-center justify-center w-6 h-6 bg-blue-500 rounded-full">
+                        <InfoIcon {...iconProps} className="h-3.5 w-3.5 text-white" />
+                    </div>
+                );
         }
     };
 
     const getColorClasses = (type) => {
         switch (type) {
             case 'success':
-                return 'bg-green-50 border-green-200 text-green-800';
+                return 'bg-white border-green-200 text-gray-800 shadow-lg ring-1 ring-green-100';
             case 'error':
-                return 'bg-red-50 border-red-200 text-red-800';
+                return 'bg-white border-red-200 text-gray-800 shadow-lg ring-1 ring-red-100';
             case 'warning':
-                return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+                return 'bg-white border-amber-200 text-gray-800 shadow-lg ring-1 ring-amber-100';
             case 'info':
             default:
-                return 'bg-blue-50 border-blue-200 text-blue-800';
+                return 'bg-white border-blue-200 text-gray-800 shadow-lg ring-1 ring-blue-100';
         }
     };
 
@@ -90,42 +109,39 @@ const NotificationToast = ({
     return (
         <div
             className={`fixed z-50 ${getPositionClasses(position)} transition-all duration-300 ease-in-out ${isLeaving
-                    ? 'opacity-0 transform translate-y-[-10px]'
-                    : 'opacity-100 transform translate-y-0'
+                ? 'opacity-0 transform translate-y-[-10px] scale-95'
+                : 'opacity-100 transform translate-y-0 scale-100'
                 }`}
-            style={{ maxWidth: '400px', minWidth: '300px' }}
+            style={{ maxWidth: '400px', minWidth: '320px' }}
         >
             <div className={`
-                flex items-start p-4 border rounded-lg shadow-lg backdrop-blur-sm
+                flex items-center p-4 border rounded-xl backdrop-blur-sm
                 ${getColorClasses(notification.type)}
+                transform transition-all duration-200 hover:shadow-xl
             `}>
-                <div className="flex-shrink-0 mr-3">
+                <div className="flex-shrink-0 mr-3 flex items-center justify-center">
                     {getIcon(notification.type)}
                 </div>
 
                 <div className="flex-1 min-w-0">
                     {notification.title && (
-                        <h4 className="text-sm font-semibold mb-1">
+                        <h4 className="text-sm font-semibold mb-1 text-gray-900">
                             {notification.title}
                         </h4>
                     )}
-                    <p className="text-sm leading-relaxed">
+                    <p className="text-sm leading-relaxed text-gray-700">
                         {notification.message}
                     </p>
 
-                    {notification.details && (
-                        <p className="text-xs mt-2 opacity-75">
-                            {notification.details}
-                        </p>
-                    )}
+                    {/* Tidak menampilkan details untuk layout yang lebih bersih */}
                 </div>
 
                 <button
                     onClick={handleClose}
-                    className="flex-shrink-0 ml-3 p-1 hover:bg-black hover:bg-opacity-10 rounded-full transition-colors"
+                    className="flex-shrink-0 ml-3 p-1.5 hover:bg-gray-100 rounded-lg transition-all duration-150 hover:scale-105 active:scale-95 flex items-center justify-center"
                     aria-label="Tutup notifikasi"
                 >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
                 </button>
             </div>
         </div>

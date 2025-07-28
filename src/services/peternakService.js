@@ -16,29 +16,35 @@ const COLLECTION_PETERNAK = "peternak";
 // CREATE
 export const createPeternak = async (peternakData) => {
   try {
+    console.log("createPeternak called with:", peternakData);
+
     const requiredFields = [
       "namaLengkap",
       "nik",
       "alamat",
       "nomorTelepon",
-      "email",
       "jenisKelamin",
-      "statusKinerja",
-      "tanggalDaftar",
       "statusSiklus",
+      "tanggalDaftar",
       "jumlahTernakAwal",
-      "jumlahTernakSaatIni",
       "targetPengembalian",
     ];
+
     for (const field of requiredFields) {
       if (
         peternakData[field] === undefined ||
         peternakData[field] === null ||
         peternakData[field] === ""
       ) {
+        console.error(`Missing required field: ${field}`);
         throw new Error(`Field ${field} wajib diisi`);
       }
     }
+
+    // Remove jumlahTernakSaatIni from peternak data - it will only exist in laporan
+    const { jumlahTernakSaatIni, ...finalData } = peternakData;
+
+    console.log("Final data for Firebase:", finalData);
 
     // Cek NIK duplikat
     const nikQuery = query(
@@ -50,12 +56,10 @@ export const createPeternak = async (peternakData) => {
       throw new Error("NIK sudah terdaftar");
     }
 
-    const docRef = await addDoc(
-      collection(db, COLLECTION_PETERNAK),
-      peternakData
-    );
+    const docRef = await addDoc(collection(db, COLLECTION_PETERNAK), finalData);
 
-    return { id: docRef.id, ...peternakData };
+    console.log("Document created with ID:", docRef.id);
+    return { id: docRef.id, ...finalData };
   } catch (error) {
     console.error("Error creating peternak:", error);
     throw error;
@@ -137,31 +141,6 @@ export const updateStatusKinerjaOtomatis = async (
     return { id: peternakId, statusKinerja };
   } catch (error) {
     console.error("Error updating status kinerja:", error);
-    throw error;
-  }
-};
-
-export const updateStatusSiklusOtomatis = async (peternakId, statusSiklus) => {
-  try {
-    const peternakRef = doc(db, COLLECTION_PETERNAK, peternakId);
-    await updateDoc(peternakRef, { statusSiklus });
-    return { id: peternakId, statusSiklus };
-  } catch (error) {
-    console.error("Error updating status siklus:", error);
-    throw error;
-  }
-};
-
-export const updateStatusKinerjaFinal = async (
-  peternakId,
-  statusKinerjaFinal
-) => {
-  try {
-    const peternakRef = doc(db, COLLECTION_PETERNAK, peternakId);
-    await updateDoc(peternakRef, { statusKinerjaFinal });
-    return { id: peternakId, statusKinerjaFinal };
-  } catch (error) {
-    console.error("Error updating status kinerja final:", error);
     throw error;
   }
 };

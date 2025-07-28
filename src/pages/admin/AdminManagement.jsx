@@ -4,7 +4,7 @@ import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
 import ResponsiveTable from '../../components/common/ResponsiveTable';
 import AdminForm from '../../components/admin/AdminForm';
-import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
+import CommonDeleteModal from '../../components/common/CommonDeleteModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import Notification from '../../components/common/Notification';
 import LogoutModal from '../../components/admin/LogoutModal';
@@ -378,8 +378,9 @@ const AdminManagement = () => {
             />
 
             {deletingAdmin && (
-                <DeleteConfirmModal
-                    admin={deletingAdmin}
+                <CommonDeleteModal
+                    item={deletingAdmin}
+                    type="admin"
                     onConfirm={handleDeleteAdmin}
                     onCancel={() => setDeletingAdmin(null)}
                     loading={deleteLoading}
