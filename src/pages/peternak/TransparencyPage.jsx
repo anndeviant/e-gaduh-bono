@@ -25,7 +25,6 @@ const PeternakTransparencyPage = () => {
                     statusKinerja: 'hijau',
                     tanggalDaftar: '2024-01-15',
                     programAktif: true,
-                    jumlahTernakSaatIni: 8,
                     targetPengembalian: 6
                 },
                 {
@@ -37,7 +36,6 @@ const PeternakTransparencyPage = () => {
                     statusKinerja: 'kuning',
                     tanggalDaftar: '2024-02-20',
                     programAktif: true,
-                    jumlahTernakSaatIni: 4,
                     targetPengembalian: 4
                 },
                 {
@@ -49,7 +47,6 @@ const PeternakTransparencyPage = () => {
                     statusKinerja: 'hijau',
                     tanggalDaftar: '2024-03-10',
                     programAktif: true,
-                    jumlahTernakSaatIni: 6,
                     targetPengembalian: 5
                 }
             ]);
@@ -60,8 +57,8 @@ const PeternakTransparencyPage = () => {
                     id: 'laporan001',
                     peternakId: 'aB1cDefG2hIjkL3mN4o',
                     tanggalPertemuan: '2024-03-31',
-                    periode: 'Triwulan I 2024',
-                    triwulan: 1,
+                    periode: 'Laporan ke-1 2024',
+                    reportNumber: 1,
                     tahun: 2024,
                     jumlahTernakAwal: 5,
                     jumlahLahir: 3,
@@ -76,8 +73,8 @@ const PeternakTransparencyPage = () => {
                     id: 'laporan002',
                     peternakId: 'aB1cDefG2hIjkL3mN4o',
                     tanggalPertemuan: '2024-06-30',
-                    periode: 'Triwulan II 2024',
-                    triwulan: 2,
+                    periode: 'Laporan ke-2 2024',
+                    reportNumber: 2,
                     tahun: 2024,
                     jumlahTernakAwal: 8,
                     jumlahLahir: 2,
@@ -92,8 +89,8 @@ const PeternakTransparencyPage = () => {
                     id: 'laporan003',
                     peternakId: 'cD2eF3gH4iJkL5mN6o',
                     tanggalPertemuan: '2024-03-31',
-                    periode: 'Triwulan I 2024',
-                    triwulan: 1,
+                    periode: 'Laporan ke-1 2024',
+                    reportNumber: 1,
                     tahun: 2024,
                     jumlahTernakAwal: 3,
                     jumlahLahir: 2,
@@ -108,8 +105,8 @@ const PeternakTransparencyPage = () => {
                     id: 'laporan004',
                     peternakId: 'eF3gH4iJ5kL6mN7o8p',
                     tanggalPertemuan: '2024-03-31',
-                    periode: 'Triwulan I 2024',
-                    triwulan: 1,
+                    periode: 'Laporan ke-1 2024',
+                    reportNumber: 1,
                     tahun: 2024,
                     jumlahTernakAwal: 4,
                     jumlahLahir: 3,
@@ -153,6 +150,11 @@ const PeternakTransparencyPage = () => {
         return laporan.length > 0 ? laporan[laporan.length - 1] : null;
     };
 
+    const getCurrentLivestockCount = (peternakId) => {
+        const latestLaporan = getLatestLaporan(peternakId);
+        return latestLaporan ? latestLaporan.jumlahAkhir : 0;
+    };
+
     // Filter data berdasarkan searchable dropdown
     const filteredPeternak = selectedPeternakFilter
         ? peternakData.filter(peternak => peternak.id === selectedPeternakFilter)
@@ -176,7 +178,7 @@ const PeternakTransparencyPage = () => {
 
     const totalStats = {
         totalPeternak: peternakData.length,
-        totalTernak: peternakData.reduce((sum, peternak) => sum + peternak.jumlahTernakSaatIni, 0),
+        totalTernak: peternakData.reduce((sum, peternak) => sum + getCurrentLivestockCount(peternak.id), 0),
         peternakAktif: peternakData.filter(peternak => peternak.programAktif).length
     };
 
@@ -350,7 +352,7 @@ const PeternakTransparencyPage = () => {
                                                             {latestLaporan ? (
                                                                 <div className="text-xs sm:text-sm">
                                                                     <div className="font-medium text-gray-900">
-                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.triwulan]}
+                                                                        Laporan ke-{latestLaporan.reportNumber || latestLaporan.triwulan}
                                                                     </div>
                                                                     <div className="text-gray-500 text-xs">
                                                                         {new Date(latestLaporan.tanggalPertemuan).toLocaleDateString('id-ID')}
@@ -435,7 +437,7 @@ const PeternakTransparencyPage = () => {
                                                                                             <td className="px-4 py-3 text-sm text-gray-700">
                                                                                                 <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                                                                                                     <span className="font-medium text-green-600">
-                                                                                                        {peternak.jumlahTernakSaatIni} ekor (saat ini)
+                                                                                                        {getCurrentLivestockCount(peternak.id)} ekor (saat ini)
                                                                                                     </span>
                                                                                                     <span className="text-blue-600 text-xs sm:text-sm">
                                                                                                         Target pengembalian: {peternak.targetPengembalian} ekor

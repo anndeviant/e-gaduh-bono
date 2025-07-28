@@ -7,11 +7,9 @@ import { useLogoutModal } from '../../hooks/useLogoutModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import LaporanTable from '../../components/admin/LaporanTable';
 import AllLaporanTable from '../../components/admin/AllLaporanTable';
-import LaporanTriwulanForm from '../../components/admin/LaporanTriwulanForm';
-import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
-import ProgramProgressIndicator from '../../components/admin/ProgramProgressIndicator';
-import StatusKinerjaManager from '../../components/admin/StatusKinerjaManager';
-import { Plus, ArrowLeft, User, MapPin, Phone, Eye } from 'lucide-react';
+import LaporanForm from '../../components/admin/LaporanForm';
+import CommonDeleteModal from '../../components/common/CommonDeleteModal';
+import { Plus, ArrowLeft, User, Eye } from 'lucide-react';
 import { getAllPeternak } from '../../services/peternakService';
 import {
     getAllLaporan,
@@ -32,7 +30,7 @@ const LaporanPeternak = () => {
     const [loading, setLoading] = useState(true);
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState(''); // untuk dropdown filter
     const [selectedPeternakId, setSelectedPeternakId] = useState(null);
-    const [selectedTriwulan, setSelectedTriwulan] = useState('');
+    const [selectedLaporan, setSelectedLaporan] = useState('');
     const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear());
     const [showAllLaporan, setShowAllLaporan] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -126,14 +124,8 @@ const LaporanPeternak = () => {
         return getPeternakLaporan(peternakId).length;
     };
 
-    const getTriwulanLabel = (triwulan) => {
-        const labels = {
-            1: 'Triwulan I (Jan-Mar)',
-            2: 'Triwulan II (Apr-Jun)',
-            3: 'Triwulan III (Jul-Sep)',
-            4: 'Triwulan IV (Okt-Des)'
-        };
-        return labels[triwulan] || `Triwulan ${triwulan}`;
+    const getLaporanLabel = (laporanNumber) => {
+        return `Laporan ke-${laporanNumber}`;
     };
 
     const getStatusBadge = (status) => {
@@ -169,13 +161,17 @@ const LaporanPeternak = () => {
         subtitle: `${peternakData.length} peternak total`
     };
 
-    // Options for Triwulan filter
-    const triwulanOptions = [
-        { value: '', label: 'Semua Triwulan', subtitle: 'Tampilkan semua periode' },
-        { value: '1', label: 'Triwulan I', subtitle: 'Januari - Maret' },
-        { value: '2', label: 'Triwulan II', subtitle: 'April - Juni' },
-        { value: '3', label: 'Triwulan III', subtitle: 'Juli - September' },
-        { value: '4', label: 'Triwulan IV', subtitle: 'Oktober - Desember' }
+    // Options for Laporan filter
+    const laporanOptions = [
+        { value: '', label: 'Semua Laporan', subtitle: 'Tampilkan semua laporan' },
+        { value: '1', label: 'Laporan ke-1', subtitle: 'Laporan pertama' },
+        { value: '2', label: 'Laporan ke-2', subtitle: 'Laporan kedua' },
+        { value: '3', label: 'Laporan ke-3', subtitle: 'Laporan ketiga' },
+        { value: '4', label: 'Laporan ke-4', subtitle: 'Laporan keempat' },
+        { value: '5', label: 'Laporan ke-5', subtitle: 'Laporan kelima' },
+        { value: '6', label: 'Laporan ke-6', subtitle: 'Laporan keenam' },
+        { value: '7', label: 'Laporan ke-7', subtitle: 'Laporan ketujuh' },
+        { value: '8', label: 'Laporan ke-8', subtitle: 'Laporan kedelapan' }
     ];
 
     // Options for Tahun filter
@@ -190,9 +186,9 @@ const LaporanPeternak = () => {
         const peternakLaporan = allLaporanData.filter(laporan => laporan.idPeternak === peternakId);
 
         return peternakLaporan.filter(laporan => {
-            const matchTriwulan = selectedTriwulan === '' || laporan.quarter?.toString() === selectedTriwulan;
+            const matchLaporan = selectedLaporan === '' || laporan.reportNumber?.toString() === selectedLaporan || laporan.quarter?.toString() === selectedLaporan;
             const matchTahun = selectedTahun === '' || laporan.year === selectedTahun;
-            return matchTriwulan && matchTahun;
+            return matchLaporan && matchTahun;
         });
     };
 
@@ -201,7 +197,7 @@ const LaporanPeternak = () => {
         if (!showAllLaporan) {
             // Ketika beralih ke mode semua laporan, reset filter
             setSelectedPeternakFilter('');
-            setSelectedTriwulan('');
+            setSelectedLaporan('');
             setSelectedTahun('');
         }
     };
@@ -215,7 +211,7 @@ const LaporanPeternak = () => {
     const handleBackToPeternak = () => {
         setSelectedPeternakId(null);
         setViewMode('peternak');
-        setSelectedTriwulan('');
+        setSelectedLaporan('');
         setSelectedTahun('');
         setEditingLaporan(null);
     };
@@ -289,15 +285,6 @@ const LaporanPeternak = () => {
         setDeletingLaporan(laporan);
     };
 
-    const handleStatusKinerjaUpdate = (newStatus) => {
-        // Update status kinerja di state lokal
-        setPeternakData(prev => prev.map(p =>
-            p.id === selectedPeternakId
-                ? { ...p, statusKinerja: newStatus, programAktif: false, tanggalSelesai: new Date().toISOString() }
-                : p
-        ));
-    };
-
     const handleDeleteLaporan = async () => {
         if (!deletingLaporan) return;
 
@@ -321,7 +308,7 @@ const LaporanPeternak = () => {
             // Show success notification
             notifyDeleteSuccess(
                 peternakName,
-                deletingLaporan.quarter || deletingLaporan.quarterNumber || deletingLaporan.triwulan,
+                deletingLaporan.reportNumber || deletingLaporan.quarter || deletingLaporan.quarterNumber || deletingLaporan.triwulan,
                 deletingLaporan.year || deletingLaporan.quarterInfo?.year || deletingLaporan.tahun
             );
 
@@ -381,7 +368,7 @@ const LaporanPeternak = () => {
                                             <p className="text-gray-600 mt-2">
                                                 {showAllLaporan
                                                     ? 'Tampilkan semua laporan dari seluruh peternak'
-                                                    : 'Pilih peternak untuk melihat dan mengelola laporan triwulan mereka'
+                                                    : 'Pilih peternak untuk melihat dan mengelola laporan mereka'
                                                 }
                                             </p>
                                         </div>
@@ -490,7 +477,7 @@ const LaporanPeternak = () => {
                                                                         {latestLaporan ? (
                                                                             <div className="text-sm">
                                                                                 <div className="font-medium text-gray-900">
-                                                                                    Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan]}
+                                                                                    {getLaporanLabel(latestLaporan.reportNumber || latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan)}
                                                                                 </div>
                                                                                 <div className="text-gray-500 text-xs">
                                                                                     {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID')}
@@ -550,7 +537,7 @@ const LaporanPeternak = () => {
                                                         Laporan {selectedPeternak?.namaLengkap}
                                                     </h1>
                                                     <p className="text-gray-600 mt-2">
-                                                        Kelola laporan triwulan untuk peternak ini
+                                                        Kelola laporan untuk peternak ini
                                                     </p>
                                                 </div>
                                             </div>
@@ -568,7 +555,7 @@ const LaporanPeternak = () => {
                                                                 <div className="text-sm text-gray-700">
                                                                     <span className="font-medium">Laporan Terakhir: </span>
                                                                     <span className="font-medium text-gray-900">
-                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan]} {latestLaporan.year || latestLaporan.quarterInfo?.year || latestLaporan.tahun}
+                                                                        {getLaporanLabel(latestLaporan.reportNumber || latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan)} {latestLaporan.year || latestLaporan.quarterInfo?.year || latestLaporan.tahun}
                                                                     </span>
                                                                     <span className="mx-1">•</span>
                                                                     <span>
@@ -589,23 +576,23 @@ const LaporanPeternak = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Filter Triwulan dan Tahun */}
+                                                {/* Filter Laporan dan Tahun */}
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                                    {/* Filter Triwulan */}
+                                                    {/* Filter Laporan */}
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                            Filter Triwulan
+                                                            Filter Laporan
                                                         </label>
                                                         <SearchableDropdown
-                                                            options={triwulanOptions}
-                                                            value={selectedTriwulan}
-                                                            onChange={setSelectedTriwulan}
-                                                            placeholder="Pilih triwulan..."
-                                                            searchPlaceholder="Cari triwulan..."
+                                                            options={laporanOptions}
+                                                            value={selectedLaporan}
+                                                            onChange={setSelectedLaporan}
+                                                            placeholder="Pilih laporan..."
+                                                            searchPlaceholder="Cari laporan..."
                                                             displayKey="label"
                                                             valueKey="value"
                                                             searchKeys={['label', 'subtitle']}
-                                                            noResultsText="Triwulan tidak ditemukan"
+                                                            noResultsText="Laporan tidak ditemukan"
                                                         />
                                                     </div>
 
@@ -631,7 +618,7 @@ const LaporanPeternak = () => {
                                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                                     <div className="text-sm text-gray-500">
                                                         Menampilkan <span className="font-medium">{laporanPeternak.length}</span> laporan
-                                                        {selectedTriwulan && ` untuk Triwulan ${selectedTriwulan}`}
+                                                        {selectedLaporan && ` untuk ${getLaporanLabel(selectedLaporan)}`}
                                                         {` tahun ${selectedTahun}`}
                                                     </div>
                                                     <button
@@ -641,49 +628,6 @@ const LaporanPeternak = () => {
                                                         <Plus className="h-4 w-4 mr-2" />
                                                         Tambah Laporan
                                                     </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Progress Indicator */}
-                                            <ProgramProgressIndicator
-                                                peternakData={selectedPeternak}
-                                                laporanData={laporanPeternak}
-                                            />
-
-                                            {/* Status Kinerja Manager */}
-                                            <StatusKinerjaManager
-                                                peternakData={selectedPeternak}
-                                                laporanData={laporanPeternak}
-                                                onStatusUpdate={handleStatusKinerjaUpdate}
-                                            />
-
-                                            {/* Info Peternak - Subcard */}
-                                            <div className="bg-white rounded-lg shadow mb-6 p-5 sm:p-6">
-                                                <h3 className="text-lg font-medium text-gray-900 mb-5">Informasi Peternak</h3>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                                    <div className="flex items-center">
-                                                        <User className="h-9 w-9 sm:h-8 sm:w-8 text-gray-400 bg-gray-100 rounded-full p-2 mr-4 sm:mr-3 flex-shrink-0" />
-                                                        <div>
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {selectedPeternak?.namaLengkap}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500">
-                                                                NIK: {selectedPeternak?.nik}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <MapPin className="h-4 w-4 text-gray-400 mr-3 sm:mr-2 flex-shrink-0" />
-                                                        <div className="text-sm text-gray-900">
-                                                            {selectedPeternak?.alamat}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <Phone className="h-4 w-4 text-gray-400 mr-3 sm:mr-2 flex-shrink-0" />
-                                                        <div className="text-sm text-gray-900">
-                                                            {selectedPeternak?.nomorTelepon}
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             </div>
 
@@ -702,7 +646,6 @@ const LaporanPeternak = () => {
                             <>
                                 {(() => {
                                     const selectedPeternak = getPeternakById(selectedPeternakId);
-                                    const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
                                     return (
                                         <>
                                             {/* Header dengan tombol back */}
@@ -720,7 +663,7 @@ const LaporanPeternak = () => {
                                                     </h1>
                                                     <p className="text-gray-600 mt-2">
                                                         {viewMode === 'edit'
-                                                            ? `Mengubah laporan ${getTriwulanLabel(editingLaporan?.triwulan)} ${editingLaporan?.tahun} untuk ${selectedPeternak?.namaLengkap}`
+                                                            ? `Mengubah ${getLaporanLabel(editingLaporan?.reportNumber || editingLaporan?.quarter || editingLaporan?.triwulan)} ${editingLaporan?.year || editingLaporan?.tahun} untuk ${selectedPeternak?.namaLengkap}`
                                                             : `Buat laporan baru untuk ${selectedPeternak?.namaLengkap}`
                                                         }
                                                     </p>
@@ -729,11 +672,10 @@ const LaporanPeternak = () => {
 
                                             {/* Form */}
                                             {(viewMode === 'add' || viewMode === 'edit') && selectedPeternakId && (
-                                                <LaporanTriwulanForm
+                                                <LaporanForm
                                                     laporan={editingLaporan}
                                                     peternakId={selectedPeternakId}
                                                     peternakData={selectedPeternak}
-                                                    triwulan={laporanPeternak.length > 0 ? laporanPeternak.length : 0}
                                                     onSave={handleSaveLaporan}
                                                     onCancel={handleCancelForm}
                                                 />
@@ -748,14 +690,14 @@ const LaporanPeternak = () => {
             </div>
 
             {deletingLaporan && (
-                <DeleteConfirmModal
-                    admin={deletingLaporan}
+                <CommonDeleteModal
+                    item={deletingLaporan}
+                    type="item"
+                    title="Hapus Laporan"
+                    customMessage={`Apakah Anda yakin ingin menghapus ${getLaporanLabel(deletingLaporan.reportNumber || deletingLaporan.quarterNumber || deletingLaporan.quarter || deletingLaporan.triwulan)} ${deletingLaporan.year || deletingLaporan.quarterInfo?.year || deletingLaporan.tahun}? Tindakan ini tidak dapat diurungkan.`}
                     onConfirm={handleDeleteLaporan}
                     onCancel={() => setDeletingLaporan(null)}
                     loading={deleteLoading}
-                    title="Hapus Laporan"
-                    message={`Apakah Anda yakin ingin menghapus laporan Triwulan ${deletingLaporan.quarterNumber || deletingLaporan.triwulan} ${deletingLaporan.quarterInfo?.year || deletingLaporan.tahun}?`}
-                    confirmText="Hapus Laporan"
                 />
             )}
 

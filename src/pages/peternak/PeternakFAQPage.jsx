@@ -18,7 +18,7 @@ const PeternakFAQPage = () => {
                     id: 1,
                     namaPeternak: 'Ahmad Subarjo',
                     tanggalLaporan: '31 Maret 2024',
-                    triwulan: 'Triwulan I 2024',
+                    periode: 'Laporan ke-1 2024',
                     kendala: 'Domba sering batuk dan terlihat lemas',
                     solusi: 'Berikan obat batuk khusus ternak, pisahkan dari domba lain, dan konsultasi dengan petugas kesehatan hewan terdekat',
                     keterangan: 'Masalah ini sering terjadi saat pergantian musim. Perlu penanganan cepat untuk mencegah penyebaran.'
@@ -27,7 +27,7 @@ const PeternakFAQPage = () => {
                     id: 2,
                     namaPeternak: 'Siti Aminah',
                     tanggalLaporan: '31 Maret 2024',
-                    triwulan: 'Triwulan I 2024',
+                    periode: 'Laporan ke-1 2024',
                     kendala: 'Sulit mendapatkan rumput segar saat musim kemarau',
                     solusi: 'Gunakan jerami padi yang difermentasi, atau campurkan dengan konsentrat. Bisa juga membuat silase untuk cadangan pakan',
                     keterangan: 'Alternatif pakan saat musim kering sangat penting untuk menjaga kondisi ternak tetap sehat.'
@@ -36,7 +36,7 @@ const PeternakFAQPage = () => {
                     id: 3,
                     namaPeternak: 'Bambang Wijaya',
                     tanggalLaporan: '31 Maret 2024',
-                    triwulan: 'Triwulan I 2024',
+                    periode: 'Laporan ke-1 2024',
                     kendala: 'Kandang bocor saat hujan, domba basah kuyup',
                     solusi: 'Perbaiki atap kandang dengan seng atau genting, pastikan ada saluran air yang baik di sekitar kandang',
                     keterangan: 'Kandang yang kering dan bersih sangat penting untuk kesehatan ternak, terutama saat musim hujan.'
@@ -45,7 +45,7 @@ const PeternakFAQPage = () => {
                     id: 4,
                     namaPeternak: 'Budi Santoso',
                     tanggalLaporan: '30 Juni 2024',
-                    triwulan: 'Triwulan II 2024',
+                    periode: 'Laporan ke-2 2024',
                     kendala: 'Domba betina tidak mau kawin atau sering gagal bunting',
                     solusi: 'Periksa kondisi nutrisi domba, pastikan mendapat vitamin yang cukup. Konsultasi dengan petugas untuk program kawin suntik',
                     keterangan: 'Masalah reproduksi bisa disebabkan kekurangan gizi atau stres. Perlu penanganan khusus dari ahli.'
@@ -54,7 +54,7 @@ const PeternakFAQPage = () => {
                     id: 5,
                     namaPeternak: 'Ahmad Subarjo',
                     tanggalLaporan: '30 Juni 2024',
-                    triwulan: 'Triwulan II 2024',
+                    periode: 'Laporan ke-2 2024',
                     kendala: 'Harga jual domba rendah, sulit mencari pembeli',
                     solusi: 'Bergabung dengan kelompok peternak untuk penjualan kolektif, manfaatkan media sosial untuk promosi, atau jual langsung ke pasar tradisional',
                     keterangan: 'Strategi pemasaran yang tepat bisa meningkatkan keuntungan peternak secara signifikan.'
@@ -63,7 +63,7 @@ const PeternakFAQPage = () => {
                     id: 6,
                     namaPeternak: 'Siti Aminah',
                     tanggalLaporan: '30 September 2024',
-                    triwulan: 'Triwulan III 2024',
+                    periode: 'Laporan ke-3 2024',
                     kendala: 'Bingung mengisi laporan bulanan ke pengelola program',
                     solusi: 'Hubungi pendamping lapangan untuk panduan, gunakan format yang sudah disediakan, catat semua kegiatan harian',
                     keterangan: 'Laporan yang lengkap dan tepat waktu membantu pengelola memberikan bantuan yang lebih baik.'
@@ -72,7 +72,7 @@ const PeternakFAQPage = () => {
                     id: 7,
                     namaPeternak: 'Bambang Wijaya',
                     tanggalLaporan: '30 September 2024',
-                    triwulan: 'Triwulan III 2024',
+                    periode: 'Laporan ke-3 2024',
                     kendala: 'Anak domba sering mati dalam minggu pertama',
                     solusi: 'Pastikan induk mendapat nutrisi yang baik saat bunting, jaga kebersihan kandang, berikan colostrum yang cukup',
                     keterangan: 'Kematian anak domba bisa dicegah dengan perawatan intensif pada minggu-minggu pertama kehidupan.'
@@ -81,7 +81,7 @@ const PeternakFAQPage = () => {
                     id: 8,
                     namaPeternak: 'Budi Santoso',
                     tanggalLaporan: '31 Desember 2024',
-                    triwulan: 'Triwulan IV 2024',
+                    periode: 'Laporan ke-4 2024',
                     kendala: 'Domba tidak mau makan konsentrat yang diberikan',
                     solusi: 'Campurkan konsentrat dengan pakan favorit seperti rumput segar, berikan secara bertahap, pastikan konsentrat tidak basi',
                     keterangan: 'Adaptasi pakan baru memerlukan waktu. Perlu kesabaran dan cara yang tepat agar ternak mau menerima.'
@@ -100,7 +100,7 @@ const PeternakFAQPage = () => {
     const faqOptions = faqData.map(faq => ({
         value: faq.id,
         label: faq.kendala,
-        subtitle: `${faq.namaPeternak} • ${faq.triwulan} • ${faq.tanggalLaporan}`,
+        subtitle: `${faq.namaPeternak} • ${faq.periode} • ${faq.tanggalLaporan}`,
     }));
 
     const defaultFaqOption = {
@@ -211,7 +211,7 @@ const PeternakFAQPage = () => {
                                                 {/* Waktu Laporan */}
                                                 <div className="flex items-center text-sm text-gray-600">
                                                     <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                                                    <span className="font-medium">{faq.triwulan}</span>
+                                                    <span className="font-medium">{faq.periode}</span>
                                                     <span className="mx-2">•</span>
                                                     <span>{faq.tanggalLaporan}</span>
                                                 </div>

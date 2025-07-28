@@ -29,7 +29,7 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                 <div className="text-center py-12">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada laporan</h3>
-                    <p className="text-gray-500">Laporan triwulan akan ditampilkan di sini</p>
+                    <p className="text-gray-500">Laporan akan ditampilkan di sini</p>
                 </div>
             </div>
         );
@@ -85,7 +85,7 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                             <Calendar className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    Triwulan {item.quarter || item.quarterNumber || item.triwulan}
+                                                    Laporan ke-{item.reportNumber || item.quarter || item.quarterNumber || item.triwulan}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
                                                     {item.year || item.quarterInfo?.year || item.tahun}
@@ -169,7 +169,7 @@ const LaporanTable = ({ laporan, onEdit, onDelete, className = "" }) => {
                                     <td colSpan="8" className="px-4 sm:px-6 py-4">
                                         <div className="space-y-3">
                                             <div className="text-xs font-medium text-gray-700 border-b border-gray-200 pb-2">
-                                                Detail Laporan Triwulan {item.quarter || item.quarterNumber || item.triwulan} {item.year || item.quarterInfo?.year || item.tahun}
+                                                Detail Laporan ke-{item.reportNumber || item.quarter || item.quarterNumber || item.triwulan} {item.year || item.quarterInfo?.year || item.tahun}
                                             </div>
 
                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">

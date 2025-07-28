@@ -468,7 +468,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                             {(!laporan && prefillInfo) && (
                                 <p className="mt-1 text-xs text-gray-500">
                                     {prefillInfo.fromPreviousReport
-                                        ? `Dari laporan Triwulan ${prefillInfo.previousQuarter} ${prefillInfo.previousYear}`
+                                        ? `Dari Laporan ke-${prefillInfo.previousQuarter} ${prefillInfo.previousYear}`
                                         : 'Dari data registrasi peternak'
                                     }
                                 </p>
