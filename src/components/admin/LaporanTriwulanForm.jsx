@@ -200,30 +200,39 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
     };
 
     const handleSubmit = async (e) => {
+
+        if (loading) return;
+        setLoading(true);
+
         e.preventDefault();
         if (!validateForm()) return;
 
         setLoading(true);
         try {
+            // Hanya kirim field yang dibutuhkan Firestore
             const dataToSave = {
-                peternakId,
-                quarterNumber: quarterInfo.quarterNumber,
-                jumlah_awal: parseInt(formData.jumlah_awal),
-                jumlah_lahir: parseInt(formData.jumlah_lahir),
-                jumlah_mati: parseInt(formData.jumlah_mati),
-                jumlah_dijual: parseInt(formData.jumlah_dijual),
-                jumlah_saat_ini: parseInt(formData.jumlah_saat_ini),
-                kendala: formData.kendala.trim(),
-                solusi: formData.solusi.trim(),
-                keterangan: formData.keterangan.trim()
+                idPeternak: peternakId,
+                quarter: quarterInfo?.quarterNumber || quarterInfo?.quarter || 1,
+                year: quarterInfo?.quarterInfo?.year || new Date().getFullYear(),
+                startDate: quarterInfo?.quarterInfo?.startDate || new Date().toISOString().split('T')[0],
+                endDate: quarterInfo?.quarterInfo?.endDate || new Date().toISOString().split('T')[0],
+                displayPeriod: quarterInfo?.quarterInfo?.displayPeriod || `Triwulan ${quarterInfo?.quarterNumber || 1} ${quarterInfo?.quarterInfo?.year || new Date().getFullYear()}`,
+                jumlahTernakAwal: parseInt(formData.jumlah_awal) || 0,
+                jumlahTernakSaatIni: parseInt(formData.jumlah_saat_ini) || 0,
+                targetPengembalian: peternakData?.targetPengembalian || 0,
+                jumlahKematian: parseInt(formData.jumlah_mati) || 0,
+                jumlahLahir: parseInt(formData.jumlah_lahir) || 0,
+                jumlahTerjual: parseInt(formData.jumlah_dijual) || 0,
+                catatan: formData.keterangan || "",
+                kendala: formData.kendala || "",
+                solusi: formData.solusi || "",
+                dibuatTanggal: new Date().toISOString().split('T')[0],
             };
 
             let result;
             if (laporan) {
-                // Update existing laporan
                 result = await updateLaporan(laporan.id, dataToSave);
             } else {
-                // Create new laporan
                 result = await createLaporan(dataToSave);
             }
 

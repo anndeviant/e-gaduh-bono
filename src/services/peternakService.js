@@ -26,9 +26,16 @@ export const createPeternak = async (peternakData) => {
       "statusKinerja",
       "tanggalDaftar",
       "statusSiklus",
+      "jumlahTernakAwal",
+      "jumlahTernakSaatIni",
+      "targetPengembalian",
     ];
     for (const field of requiredFields) {
-      if (!peternakData[field]) {
+      if (
+        peternakData[field] === undefined ||
+        peternakData[field] === null ||
+        peternakData[field] === ""
+      ) {
         throw new Error(`Field ${field} wajib diisi`);
       }
     }
@@ -120,7 +127,10 @@ export const deletePeternak = async (peternakId) => {
   }
 };
 
-export const updateStatusKinerjaOtomatis = async (peternakId, statusKinerja) => {
+export const updateStatusKinerjaOtomatis = async (
+  peternakId,
+  statusKinerja
+) => {
   try {
     const peternakRef = doc(db, COLLECTION_PETERNAK, peternakId);
     await updateDoc(peternakRef, { statusKinerja });
@@ -129,7 +139,7 @@ export const updateStatusKinerjaOtomatis = async (peternakId, statusKinerja) => 
     console.error("Error updating status kinerja:", error);
     throw error;
   }
-}
+};
 
 export const updateStatusSiklusOtomatis = async (peternakId, statusSiklus) => {
   try {
@@ -142,7 +152,10 @@ export const updateStatusSiklusOtomatis = async (peternakId, statusSiklus) => {
   }
 };
 
-export const updateStatusKinerjaFinal = async (peternakId, statusKinerjaFinal) => {
+export const updateStatusKinerjaFinal = async (
+  peternakId,
+  statusKinerjaFinal
+) => {
   try {
     const peternakRef = doc(db, COLLECTION_PETERNAK, peternakId);
     await updateDoc(peternakRef, { statusKinerjaFinal });
@@ -151,4 +164,4 @@ export const updateStatusKinerjaFinal = async (peternakId, statusKinerjaFinal) =
     console.error("Error updating status kinerja final:", error);
     throw error;
   }
-}
+};

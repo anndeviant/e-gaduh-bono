@@ -14,6 +14,8 @@ import { Plus, ArrowLeft, User, MapPin, Phone, Eye } from 'lucide-react';
 import {
     // Unused functions removed for now
 } from '../../services/laporanService';
+import { getAllPeternak, getPeternakById } from '../../services/peternakService';
+import { getLaporanByPeternak, createLaporan, updateLaporan, deleteLaporan } from '../../services/laporanService';
 
 const LaporanPeternak = () => {
     const navigate = useNavigate();
@@ -40,6 +42,28 @@ const LaporanPeternak = () => {
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Ambil semua peternak
+                const peternakList = await getAllPeternak();
+                setPeternakData(peternakList);
+
+                // Jika filter peternak dipilih, ambil laporan dari firebase
+                if (selectedPeternakFilter) {
+                    const laporanList = await getLaporanByPeternak(selectedPeternakFilter);
+                    await setLaporanData(laporanList);
+                    console.log('Laporan data:', laporanList);
+                } else {
+                    // Jika ingin menampilkan semua laporan, bisa ambil semua laporan dari semua peternak (opsional)
+                    setLaporanData([]);
+                }
+            } catch (error) {
+                // handle error
+            }
+            setLoading(false);
+        };
+
         // Check authentication
         const user = localStorage.getItem('adminUser');
         if (!user) {
@@ -47,157 +71,16 @@ const LaporanPeternak = () => {
             return;
         }
 
-        // Sample data (sinkron dengan transparansi)
-        setTimeout(() => {
-            setPeternakData([
-                {
-                    id: 'aB1cDefG2hIjkL3mN4o',
-                    namaLengkap: 'Ahmad Subarjo',
-                    nik: '3401020304800001',
-                    alamat: 'Dusun Ngaliyan RT 01/RW 02, Desa Bono',
-                    nomorTelepon: '081234567890',
-                    email: 'ahmad.subarjo@email.com',
-                    jenisKelamin: 'Laki-laki',
-                    statusKinerja: 'Progress',
-                    tanggalDaftar: '2024-01-15',
-                    jumlahTernakAwal: 5,
-                    programAktif: true,
-                    jumlahTernakSaatIni: 8,
-                    targetPengembalian: 6,
-                    totalLaporan: 2
-                },
-                {
-                    id: 'cD2eF3gH4iJkL5mN6o',
-                    namaLengkap: 'Siti Aminah',
-                    nik: '3401020304800002',
-                    alamat: 'Dusun Krajan RT 02/RW 01, Desa Bono',
-                    nomorTelepon: '081234567891',
-                    email: 'siti.aminah@email.com',
-                    jenisKelamin: 'Perempuan',
-                    statusKinerja: 'Progress',
-                    tanggalDaftar: '2024-02-20',
-                    jumlahTernakAwal: 3,
-                    programAktif: true,
-                    jumlahTernakSaatIni: 4,
-                    targetPengembalian: 4,
-                    totalLaporan: 1
-                },
-                {
-                    id: 'eF3gH4iJ5kL6mN7o8p',
-                    namaLengkap: 'Bambang Wijaya',
-                    nik: '3401020304800003',
-                    alamat: 'Dusun Sawah RT 03/RW 02, Desa Bono',
-                    nomorTelepon: '081234567892',
-                    email: 'bambang.wijaya@email.com',
-                    jenisKelamin: 'Laki-laki',
-                    statusKinerja: 'Progress',
-                    tanggalDaftar: '2024-03-10',
-                    jumlahTernakAwal: 4,
-                    programAktif: true,
-                    jumlahTernakSaatIni: 6,
-                    targetPengembalian: 5,
-                    totalLaporan: 1
-                }
-            ]);
+        fetchData();
+    }, [navigate, selectedPeternakFilter]);
 
-            setLaporanData([
-                {
-                    id: 'laporan001',
-                    peternakId: 'aB1cDefG2hIjkL3mN4o',
-                    quarterNumber: 1,
-                    quarterInfo: {
-                        quarter: 1,
-                        year: 2024,
-                        startDate: '2024-01-15',
-                        endDate: '2024-04-14',
-                        displayPeriod: '15 Januari 2024 - 14 April 2024'
-                    },
-                    tanggalLaporan: '2024-04-14',
-                    jumlah_awal: 5,
-                    jumlah_lahir: 3,
-                    jumlah_mati: 0,
-                    jumlah_dijual: 0,
-                    jumlah_saat_ini: 8,
-                    kendala: 'Domba sering batuk dan terlihat lemas',
-                    solusi: 'Berikan obat batuk khusus ternak, pisahkan dari domba lain, dan konsultasi dengan petugas kesehatan hewan terdekat',
-                    keterangan: 'Masalah ini sering terjadi saat pergantian musim. Perlu penanganan cepat untuk mencegah penyebaran.',
-                    tanggalDibuat: '2024-04-14T10:00:00.000Z',
-                    tanggalUpdate: '2024-04-14T10:00:00.000Z'
-                },
-                {
-                    id: 'laporan002',
-                    peternakId: 'aB1cDefG2hIjkL3mN4o',
-                    quarterNumber: 2,
-                    quarterInfo: {
-                        quarter: 2,
-                        year: 2024,
-                        startDate: '2024-04-15',
-                        endDate: '2024-07-14',
-                        displayPeriod: '15 April 2024 - 14 Juli 2024'
-                    },
-                    tanggalLaporan: '2024-07-14',
-                    jumlah_awal: 8,
-                    jumlah_lahir: 2,
-                    jumlah_mati: 1,
-                    jumlah_dijual: 1,
-                    jumlah_saat_ini: 8,
-                    kendala: 'Harga jual domba rendah, sulit mencari pembeli',
-                    solusi: 'Bergabung dengan kelompok peternak untuk penjualan kolektif, manfaatkan media sosial untuk promosi, atau jual langsung ke pasar tradisional',
-                    keterangan: 'Strategi pemasaran yang tepat bisa meningkatkan keuntungan peternak secara signifikan.',
-                    tanggalDibuat: '2024-07-14T10:00:00.000Z',
-                    tanggalUpdate: '2024-07-14T10:00:00.000Z'
-                },
-                {
-                    id: 'laporan003',
-                    peternakId: 'cD2eF3gH4iJkL5mN6o',
-                    quarterNumber: 1,
-                    quarterInfo: {
-                        quarter: 1,
-                        year: 2024,
-                        startDate: '2024-02-20',
-                        endDate: '2024-05-19',
-                        displayPeriod: '20 Februari 2024 - 19 Mei 2024'
-                    },
-                    tanggalLaporan: '2024-05-19',
-                    jumlah_awal: 3,
-                    jumlah_lahir: 2,
-                    jumlah_mati: 1,
-                    jumlah_dijual: 0,
-                    jumlah_saat_ini: 4,
-                    kendala: 'Sempat mengalami masalah pakan di musim kemarau',
-                    solusi: 'Diberikan bantuan pakan tambahan dan penyuluhan manajemen pakan kering',
-                    keterangan: 'Alternatif pakan saat musim kering sangat penting untuk menjaga kondisi ternak tetap sehat.',
-                    tanggalDibuat: '2024-05-19T10:00:00.000Z',
-                    tanggalUpdate: '2024-05-19T10:00:00.000Z'
-                },
-                {
-                    id: 'laporan004',
-                    peternakId: 'eF3gH4iJ5kL6mN7o8p',
-                    quarterNumber: 1,
-                    quarterInfo: {
-                        quarter: 1,
-                        year: 2024,
-                        startDate: '2024-03-10',
-                        endDate: '2024-06-09',
-                        displayPeriod: '10 Maret 2024 - 9 Juni 2024'
-                    },
-                    tanggalLaporan: '2024-06-09',
-                    jumlah_awal: 4,
-                    jumlah_lahir: 3,
-                    jumlah_mati: 1,
-                    jumlah_dijual: 0,
-                    jumlah_saat_ini: 6,
-                    kendala: 'Kandang bocor saat hujan, domba basah kuyup',
-                    solusi: 'Perbaiki atap kandang dengan seng atau genting, pastikan ada saluran air yang baik di sekitar kandang',
-                    keterangan: 'Kandang yang kering dan bersih sangat penting untuk kesehatan ternak, terutama saat musim hujan.',
-                    tanggalDibuat: '2024-06-09T10:00:00.000Z',
-                    tanggalUpdate: '2024-06-09T10:00:00.000Z'
-                }
-            ]);
-
-            setLoading(false);
-        }, 1000);
-    }, [navigate]);
+    const getPeternakByIdLocal = async (peternakId) => {
+        try {
+            return await getPeternakById(peternakId);
+        } catch {
+            return null;
+        }
+    };
 
     // Helper functions
     const getPeternakById = (peternakId) => {
@@ -312,19 +195,27 @@ const LaporanPeternak = () => {
 
     const handleSaveLaporan = async (formData) => {
         try {
-            if (viewMode === 'edit' && editingLaporan) {
-                // Update existing laporan
-                setLaporanData(laporanData.map(l => l.id === editingLaporan.id ? { ...l, ...formData } : l));
-            } else {
-                // Add new laporan
-                setLaporanData([formData, ...laporanData]);
+            // Pastikan idPeternak terisi
+            if (!selectedPeternakId) {
+                alert("Peternak belum dipilih. Tidak bisa menyimpan laporan.");
+                return;
             }
+            formData.idPeternak = selectedPeternakId;
+            if (viewMode === 'edit' && editingLaporan) {
+                await updateLaporan(editingLaporan.id, formData);
+            } else {
+                await createLaporan(formData);
+            }
+            // Refresh laporan
+            const laporanList = await getLaporanByPeternak(selectedPeternakId);
+            setLaporanData(laporanList);
             setViewMode('laporan');
             setEditingLaporan(null);
         } catch (error) {
             console.error('Error saving laporan:', error);
         }
     };
+
 
     const handleCancelForm = () => {
         setViewMode('laporan');
@@ -348,9 +239,9 @@ const LaporanPeternak = () => {
         if (!deletingLaporan) return;
         setDeleteLoading(true);
         try {
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setLaporanData(laporanData.filter(l => l.id !== deletingLaporan.id));
+            await deleteLaporan(deletingLaporan.id);
+            const laporanList = await getLaporanByPeternak(selectedPeternakId);
+            setLaporanData(laporanList);
             setDeletingLaporan(null);
         } catch (error) {
             console.error('Error deleting laporan:', error);
@@ -715,13 +606,15 @@ const LaporanPeternak = () => {
                                             </div>
 
                                             {/* Form */}
-                                            <LaporanTriwulanForm
-                                                laporan={editingLaporan}
-                                                peternakId={selectedPeternakId}
-                                                peternakData={selectedPeternak}
-                                                onSave={handleSaveLaporan}
-                                                onCancel={handleCancelForm}
-                                            />
+                                            {(viewMode === 'add' || viewMode === 'edit') && selectedPeternakId && (
+                                                <LaporanTriwulanForm
+                                                    laporan={editingLaporan}
+                                                    peternakId={selectedPeternakId}
+                                                    peternakData={selectedPeternak}
+                                                    onSave={handleSaveLaporan}
+                                                    onCancel={handleCancelForm}
+                                                />
+                                            )}
                                         </>
                                     );
                                 })()}
