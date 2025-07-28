@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileText, AlertCircle, CheckCircle, Info, TrendingUp } from 'lucide-react';
 import {
     getNextAllowedQuarter,
-    calculatePrefillData,
-    createLaporan,
-    updateLaporan
+    calculatePrefillData
 } from '../../services/laporanService';
 import { useLaporanNotification } from '../../hooks/useLaporanNotification';
 import NotificationToast from '../common/NotificationToast';
@@ -271,14 +269,21 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
 
             let result;
             if (laporan) {
-                result = await updateLaporan(laporan.id, dataToSave);
+                // Untuk edit, langsung return data yang akan diupdate tanpa memanggil updateLaporan
+                // Biarkan parent component yang menangani actual update
+                result = {
+                    id: laporan.id,
+                    ...dataToSave
+                };
                 notifyUpdateSuccess(
                     peternakData?.namaLengkap || 'Peternak',
                     dataToSave.quarter,
                     dataToSave.year
                 );
             } else {
-                result = await createLaporan(dataToSave);
+                // Untuk create, langsung return data yang akan dibuat tanpa memanggil createLaporan
+                // Biarkan parent component yang menangani actual create
+                result = dataToSave;
                 notifyCreateSuccess(
                     peternakData?.namaLengkap || 'Peternak',
                     dataToSave.quarter,

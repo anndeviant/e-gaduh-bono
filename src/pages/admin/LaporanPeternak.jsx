@@ -242,19 +242,40 @@ const LaporanPeternak = () => {
                 alert("Peternak belum dipilih. Tidak bisa menyimpan laporan.");
                 return;
             }
-            formData.idPeternak = selectedPeternakId;
+            
+            // Pastikan formData memiliki idPeternak
+            const dataToSave = {
+                ...formData,
+                idPeternak: selectedPeternakId
+            };
+
+            let result;
             if (viewMode === 'edit' && editingLaporan) {
-                await updateLaporan(editingLaporan.id, formData);
+                // Update laporan yang ada
+                result = await updateLaporan(editingLaporan.id, dataToSave);
+                console.log('Laporan berhasil diupdate:', result);
             } else {
-                await createLaporan(formData);
+                // Buat laporan baru
+                result = await createLaporan(dataToSave);
+                console.log('Laporan berhasil dibuat:', result);
             }
-            // Refresh laporan
+
+            // Refresh data laporan untuk peternak terpilih
             const laporanList = await getLaporanByPeternak(selectedPeternakId);
             setLaporanData(laporanList);
+            
+            // Refresh data keseluruhan untuk tabel AllLaporan
+            const allLaporan = await getAllLaporan();
+            setAllLaporanData(allLaporan);
+
+            // Redirect kembali ke halaman laporan peternak
             setViewMode('laporan');
             setEditingLaporan(null);
+            
+            console.log('Redirect berhasil ke halaman laporan');
         } catch (error) {
             console.error('Error saving laporan:', error);
+            alert(`Gagal menyimpan laporan: ${error.message}`);
         }
     };
 
@@ -289,9 +310,13 @@ const LaporanPeternak = () => {
 
             await deleteLaporan(deletingLaporan.id);
 
-            // Refresh data
+            // Refresh data laporan untuk peternak terpilih
             const laporanList = await getLaporanByPeternak(selectedPeternakId);
             setLaporanData(laporanList);
+            
+            // Refresh data keseluruhan untuk tabel AllLaporan
+            const allLaporan = await getAllLaporan();
+            setAllLaporanData(allLaporan);
 
             // Show success notification
             notifyDeleteSuccess(
@@ -301,6 +326,7 @@ const LaporanPeternak = () => {
             );
 
             setDeletingLaporan(null);
+            console.log('Laporan berhasil dihapus dan data direfresh');
         } catch (error) {
             console.error('Error deleting laporan:', error);
             notifyDeleteError(error.message);

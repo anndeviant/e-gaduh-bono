@@ -41,9 +41,12 @@ export const createLaporan = async (laporanData) => {
       }
     }
 
+    // Hapus field id dari laporanData jika ada (untuk menghindari duplikasi)
+    const { id, ...dataWithoutId } = laporanData;
+
     // Pastikan tanggal laporan menggunakan format yang benar
     const finalData = {
-      ...laporanData,
+      ...dataWithoutId,
       tanggalLaporan:
         laporanData.tanggalLaporan || new Date().toISOString().split("T")[0],
       createdAt: new Date().toISOString(),
@@ -115,8 +118,11 @@ export const getLaporanById = async (laporanId) => {
 // UPDATE
 export const updateLaporan = async (laporanId, updateData) => {
   try {
+    // Hapus field id dari updateData jika ada (untuk menghindari duplikasi)
+    const { id, ...dataWithoutId } = updateData;
+
     const finalUpdateData = {
-      ...updateData,
+      ...dataWithoutId,
       updatedAt: new Date().toISOString(),
     };
 
