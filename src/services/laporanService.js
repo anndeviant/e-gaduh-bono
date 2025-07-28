@@ -11,6 +11,11 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
+import { 
+  incrementJumlahLaporan, 
+  decrementJumlahLaporan, 
+  syncJumlahLaporan 
+} from "./peternakService";
 
 const COLLECTION_LAPORAN = "laporan";
 
@@ -101,6 +106,16 @@ export const createLaporan = async (laporanData) => {
     };
 
     const docRef = await addDoc(collection(db, COLLECTION_LAPORAN), finalData);
+    
+    // Update jumlah laporan di data peternak setelah berhasil membuat laporan
+    try {
+      await incrementJumlahLaporan(finalData.idPeternak);
+      console.log(`Successfully incremented jumlahLaporan for peternak ${finalData.idPeternak}`);
+    } catch (error) {
+      console.error("Error incrementing jumlahLaporan:", error);
+      // Tidak throw error untuk menjaga konsistensi data laporan yang sudah berhasil dibuat
+    }
+    
     return { id: docRef.id, ...finalData };
   } catch (error) {
     console.error("Error creating laporan:", error);
@@ -264,10 +279,81 @@ export const updateLaporan = async (laporanId, updateData) => {
 // DELETE
 export const deleteLaporan = async (laporanId) => {
   try {
+    // Ambil data laporan terlebih dahulu untuk mendapatkan idPeternak
+    const laporanDoc = await getDoc(doc(db, COLLECTION_LAPORAN, laporanId));
+    if (!laporanDoc.exists()) {
+      throw new Error("Laporan tidak ditemukan");
+    }
+    
+    const laporanData = laporanDoc.data();
+    const idPeternak = laporanData.idPeternak;
+    
+    // Hapus laporan
     await deleteDoc(doc(db, COLLECTION_LAPORAN, laporanId));
+    
+    // Update jumlah laporan di data peternak setelah berhasil menghapus laporan
+    if (idPeternak) {
+      try {
+        await decrementJumlahLaporan(idPeternak);
+        console.log(`Successfully decremented jumlahLaporan for peternak ${idPeternak}`);
+      } catch (error) {
+        console.error("Error decrementing jumlahLaporan:", error);
+        // Tidak throw error karena laporan sudah berhasil dihapus
+      }
+    }
+    
     return { success: true };
   } catch (error) {
     console.error("Error deleting laporan:", error);
+    throw error;
+  }
+};
+
+// SYNC JUMLAH LAPORAN - untuk sinkronisasi data yang sudah ada
+export const syncAllPeternakJumlahLaporan = async () => {
+  try {
+    console.log("Starting sync of jumlahLaporan for all peternak...");
+    
+    // Ambil semua laporan
+    const laporanSnapshot = await getDocs(collection(db, COLLECTION_LAPORAN));
+    
+    // Kelompokkan laporan berdasarkan idPeternak
+    const laporanByPeternak = {};
+    laporanSnapshot.docs.forEach(doc => {
+      const laporan = doc.data();
+      const idPeternak = laporan.idPeternak;
+      
+      if (!laporanByPeternak[idPeternak]) {
+        laporanByPeternak[idPeternak] = [];
+      }
+      laporanByPeternak[idPeternak].push(laporan);
+    });
+    
+    // Update jumlahLaporan untuk setiap peternak
+    const syncResults = [];
+    for (const [idPeternak, laporanList] of Object.entries(laporanByPeternak)) {
+      try {
+        const actualJumlahLaporan = laporanList.length;
+        await syncJumlahLaporan(idPeternak, actualJumlahLaporan);
+        syncResults.push({
+          idPeternak,
+          jumlahLaporan: actualJumlahLaporan,
+          status: 'success'
+        });
+      } catch (error) {
+        console.error(`Error syncing peternak ${idPeternak}:`, error);
+        syncResults.push({
+          idPeternak,
+          status: 'error',
+          error: error.message
+        });
+      }
+    }
+    
+    console.log("Sync completed:", syncResults);
+    return syncResults;
+  } catch (error) {
+    console.error("Error syncing jumlahLaporan:", error);
     throw error;
   }
 };

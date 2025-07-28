@@ -16,7 +16,8 @@ import {
     getLaporanByPeternak,
     createLaporan,
     updateLaporan,
-    deleteLaporan
+    deleteLaporan,
+    syncAllPeternakJumlahLaporan
 } from '../../services/laporanService';
 import { useLaporanNotification } from '../../hooks/useLaporanNotification';
 import NotificationToast from '../../components/common/NotificationToast';
@@ -47,6 +48,7 @@ const LaporanPeternak = () => {
         confirmLogout
     } = useLogoutModal();
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [syncLoading, setSyncLoading] = useState(false);
 
     // Notification hook
     const {
@@ -71,6 +73,23 @@ const LaporanPeternak = () => {
                 const allLaporanList = await getAllLaporan();
                 setAllLaporanData(allLaporanList);
                 console.log('All laporan data:', allLaporanList);
+
+                // Sync jumlahLaporan di background untuk memastikan data konsisten
+                // Hanya lakukan sync sekali saat pertama kali load
+                if (!localStorage.getItem('laporanSyncDone')) {
+                    try {
+                        console.log('Performing initial sync of jumlahLaporan...');
+                        await syncAllPeternakJumlahLaporan();
+                        localStorage.setItem('laporanSyncDone', 'true');
+                        console.log('Initial sync completed successfully');
+                        
+                        // Refresh data peternak setelah sync
+                        const updatedPeternakList = await getAllPeternak();
+                        setPeternakData(updatedPeternakList);
+                    } catch (syncError) {
+                        console.error('Error during sync, but continuing with normal flow:', syncError);
+                    }
+                }
 
                 // Jika filter peternak dipilih, ambil laporan dari firebase
                 if (selectedPeternakFilter) {
@@ -121,6 +140,15 @@ const LaporanPeternak = () => {
     };
 
     const getTotalLaporanByPeternak = (peternakId) => {
+        // Ambil data peternak untuk mendapatkan jumlahLaporan dari database
+        const peternakData = getPeternakById(peternakId);
+        
+        // Jika field jumlahLaporan ada di database, gunakan itu
+        if (peternakData && typeof peternakData.jumlahLaporan === 'number') {
+            return peternakData.jumlahLaporan;
+        }
+        
+        // Fallback: hitung dari laporan yang ada (untuk data lama yang belum punya field jumlahLaporan)
         return getPeternakLaporan(peternakId).length;
     };
 
@@ -322,6 +350,29 @@ const LaporanPeternak = () => {
         }
     };
 
+    // Manual sync function for admin
+    const handleManualSync = async () => {
+        setSyncLoading(true);
+        try {
+            console.log('Starting manual sync of jumlahLaporan...');
+            notifyActionConfirm('Sinkronisasi', 'data jumlah laporan');
+            
+            await syncAllPeternakJumlahLaporan();
+            
+            // Refresh data peternak setelah sync
+            const updatedPeternakList = await getAllPeternak();
+            setPeternakData(updatedPeternakList);
+            
+            notifyLoadSuccess('Sinkronisasi berhasil');
+            console.log('Manual sync completed successfully');
+        } catch (error) {
+            console.error('Error during manual sync:', error);
+            notifyLoadError(`Gagal sinkronisasi: ${error.message}`);
+        } finally {
+            setSyncLoading(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="h-screen w-full flex overflow-hidden bg-gray-100">
@@ -372,7 +423,27 @@ const LaporanPeternak = () => {
                                                 }
                                             </p>
                                         </div>
-                                        <div className="mt-4 sm:mt-0">
+                                        <div className="mt-4 sm:mt-0 flex gap-3">
+                                            <button
+                                                onClick={handleManualSync}
+                                                disabled={syncLoading}
+                                                className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                title="Sinkronisasi jumlah laporan dengan data aktual"
+                                            >
+                                                {syncLoading ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-600 mr-2"></div>
+                                                        Sync...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                        </svg>
+                                                        Sync Data
+                                                    </>
+                                                )}
+                                            </button>
                                             <button
                                                 onClick={handleToggleAllLaporan}
                                                 className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
@@ -469,9 +540,17 @@ const LaporanPeternak = () => {
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                            {totalLaporanPeternak} laporan
-                                                                        </span>
+                                                                        <div className="flex items-center justify-center">
+                                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                {totalLaporanPeternak} laporan
+                                                                            </span>
+                                                                            {/* Indikator sumber data */}
+                                                                            {typeof peternak.jumlahLaporan === 'number' ? (
+                                                                                <span className="ml-1 w-2 h-2 bg-green-400 rounded-full" title="Data dari database"></span>
+                                                                            ) : (
+                                                                                <span className="ml-1 w-2 h-2 bg-orange-400 rounded-full" title="Data dihitung (perlu sync)"></span>
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
                                                                         {latestLaporan ? (

@@ -44,6 +44,9 @@ export const createPeternak = async (peternakData) => {
     // Remove jumlahTernakSaatIni from peternak data - it will only exist in laporan
     const { jumlahTernakSaatIni, ...finalData } = peternakData;
 
+    // Inisialisasi jumlahLaporan untuk peternak baru
+    finalData.jumlahLaporan = 0;
+
     console.log("Final data for Firebase:", finalData);
 
     // Cek NIK duplikat
@@ -141,6 +144,73 @@ export const updateStatusKinerjaOtomatis = async (
     return { id: peternakId, statusKinerja };
   } catch (error) {
     console.error("Error updating status kinerja:", error);
+    throw error;
+  }
+};
+
+// UPDATE JUMLAH LAPORAN
+export const updateJumlahLaporan = async (peternakId, jumlahLaporan) => {
+  try {
+    const peternakRef = doc(db, COLLECTION_PETERNAK, peternakId);
+    await updateDoc(peternakRef, { jumlahLaporan });
+    console.log(`Updated jumlah laporan for peternak ${peternakId} to ${jumlahLaporan}`);
+    return { id: peternakId, jumlahLaporan };
+  } catch (error) {
+    console.error("Error updating jumlah laporan:", error);
+    throw error;
+  }
+};
+
+// INCREMENT JUMLAH LAPORAN (untuk create laporan)
+export const incrementJumlahLaporan = async (peternakId) => {
+  try {
+    // Ambil data peternak saat ini
+    const peternakDoc = await getDoc(doc(db, COLLECTION_PETERNAK, peternakId));
+    if (!peternakDoc.exists()) {
+      throw new Error("Data peternak tidak ditemukan");
+    }
+    
+    const currentData = peternakDoc.data();
+    const currentJumlahLaporan = currentData.jumlahLaporan || 0;
+    const newJumlahLaporan = currentJumlahLaporan + 1;
+    
+    await updateJumlahLaporan(peternakId, newJumlahLaporan);
+    return { id: peternakId, jumlahLaporan: newJumlahLaporan };
+  } catch (error) {
+    console.error("Error incrementing jumlah laporan:", error);
+    throw error;
+  }
+};
+
+// DECREMENT JUMLAH LAPORAN (untuk delete laporan)
+export const decrementJumlahLaporan = async (peternakId) => {
+  try {
+    // Ambil data peternak saat ini
+    const peternakDoc = await getDoc(doc(db, COLLECTION_PETERNAK, peternakId));
+    if (!peternakDoc.exists()) {
+      throw new Error("Data peternak tidak ditemukan");
+    }
+    
+    const currentData = peternakDoc.data();
+    const currentJumlahLaporan = currentData.jumlahLaporan || 0;
+    const newJumlahLaporan = Math.max(0, currentJumlahLaporan - 1); // Pastikan tidak negatif
+    
+    await updateJumlahLaporan(peternakId, newJumlahLaporan);
+    return { id: peternakId, jumlahLaporan: newJumlahLaporan };
+  } catch (error) {
+    console.error("Error decrementing jumlah laporan:", error);
+    throw error;
+  }
+};
+
+// SYNC JUMLAH LAPORAN (untuk sinkronisasi data yang ada)
+export const syncJumlahLaporan = async (peternakId, actualJumlahLaporan) => {
+  try {
+    await updateJumlahLaporan(peternakId, actualJumlahLaporan);
+    console.log(`Synced jumlah laporan for peternak ${peternakId} to actual count: ${actualJumlahLaporan}`);
+    return { id: peternakId, jumlahLaporan: actualJumlahLaporan };
+  } catch (error) {
+    console.error("Error syncing jumlah laporan:", error);
     throw error;
   }
 };
