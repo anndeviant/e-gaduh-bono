@@ -134,6 +134,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                 placeholder="Masukkan email"
                             />
                         </div>
+                        {isEditMode && <p className="mt-1 text-xs text-gray-500">Email untuk login.</p>}
                         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
                     </div>
                     <div>
