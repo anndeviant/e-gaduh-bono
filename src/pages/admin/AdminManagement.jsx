@@ -79,7 +79,7 @@ const AdminManagement = () => {
         };
 
         fetchAdmins();
-    }, [navigate]);
+    }, [navigate, showError]);
 
     const handleAddAdmin = () => {
         setEditingAdmin(null);
