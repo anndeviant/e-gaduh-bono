@@ -90,7 +90,6 @@ const PeternakManagement = () => {
     };
 
     const handleSavePeternak = async (formData) => {
-        console.log('handleSavePeternak called with:', formData);
         setLoading(true);
         try {
             // Logic ternak sesuai permintaan baru
@@ -100,14 +99,10 @@ const PeternakManagement = () => {
             // Remove jumlahTernakSaatIni from form data - it will only exist in laporan
             const { jumlahTernakSaatIni, ...cleanFormData } = formData;
 
-            console.log('Final data to save:', cleanFormData);
-
             if (view === 'edit' && editingPeternak) {
-                const result = await updatePeternak(editingPeternak.id, cleanFormData);
-                console.log('Update result:', result);
+                await updatePeternak(editingPeternak.id, cleanFormData);
             } else {
-                const result = await createPeternak(cleanFormData);
-                console.log('Create result:', result);
+                await createPeternak(cleanFormData);
             }
             // Refresh data
             const data = await getAllPeternak();

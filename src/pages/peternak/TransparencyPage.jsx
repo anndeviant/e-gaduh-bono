@@ -352,7 +352,7 @@ const PeternakTransparencyPage = () => {
                                                             {latestLaporan ? (
                                                                 <div className="text-xs sm:text-sm">
                                                                     <div className="font-medium text-gray-900">
-                                                                        Laporan ke-{latestLaporan.reportNumber || latestLaporan.triwulan}
+                                                                        Laporan ke-{latestLaporan.reportNumber}
                                                                     </div>
                                                                     <div className="text-gray-500 text-xs">
                                                                         {new Date(latestLaporan.tanggalPertemuan).toLocaleDateString('id-ID')}

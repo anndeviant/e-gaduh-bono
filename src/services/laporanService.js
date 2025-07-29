@@ -9,12 +9,15 @@ import {
   where,
   orderBy,
   getDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
-import { 
-  incrementJumlahLaporan, 
-  decrementJumlahLaporan, 
-  syncJumlahLaporan 
+import {
+  incrementJumlahLaporan,
+  decrementJumlahLaporan,
+  syncJumlahLaporan,
+  updatePeternak,
+  syncStatusPeternakSelesai,
 } from "./peternakService";
 
 const COLLECTION_LAPORAN = "laporan";
@@ -25,19 +28,15 @@ export const createLaporan = async (laporanData) => {
     // Validasi field wajib
     const requiredFields = [
       "idPeternak",
-      "year",
-      "startDate",
-      "endDate",
       "displayPeriod",
       "jumlahTernakAwal",
       "jumlahTernakSaatIni",
-      "targetPengembalian",
       "tanggalLaporan",
     ];
 
-    // Pastikan ada reportNumber atau quarter
-    if (!laporanData.reportNumber && !laporanData.quarter) {
-      throw new Error("Field reportNumber atau quarter wajib diisi");
+    // Pastikan ada reportNumber
+    if (!laporanData.reportNumber) {
+      throw new Error("Field reportNumber wajib diisi");
     }
 
     for (const field of requiredFields) {
@@ -50,8 +49,8 @@ export const createLaporan = async (laporanData) => {
       }
     }
 
-    // Pastikan reportNumber diset dengan fallback ke quarter
-    const reportNumber = laporanData.reportNumber || laporanData.quarter || 1;
+    // Pastikan reportNumber diset
+    const reportNumber = laporanData.reportNumber;
 
     // Validasi duplikasi laporan ke-N untuk peternak yang sama
     // Cek semua laporan peternak ini dan validasi manual
@@ -61,10 +60,10 @@ export const createLaporan = async (laporanData) => {
     );
     const existingSnapshot = await getDocs(existingLaporanQuery);
 
-    // Cek duplikasi berdasarkan reportNumber atau quarter
+    // Cek duplikasi berdasarkan reportNumber
     const existingReports = existingSnapshot.docs.map((doc) => {
       const data = doc.data();
-      return data.reportNumber || data.quarter || 1;
+      return data.reportNumber;
     });
 
     if (existingReports.includes(reportNumber)) {
@@ -74,19 +73,21 @@ export const createLaporan = async (laporanData) => {
     }
 
     // Validasi maksimal 8 laporan
-    console.log("DEBUG idPeternak:", laporanData.idPeternak);
-    console.log(
-      "DEBUG existingSnapshot.docs.length:",
-      existingSnapshot.docs.length
-    );
-    console.log(
-      "DEBUG existingSnapshot.docs:",
-      existingSnapshot.docs.map((doc) => doc.data())
-    );
     if (existingSnapshot.docs.length >= 8) {
       throw new Error(
         "Peternak sudah mencapai maksimal 8 laporan (2 tahun program)"
       );
+    }
+
+    // Cek status peternak apakah sudah "Selesai"
+    const peternakDoc = await getDoc(
+      doc(db, "peternak", laporanData.idPeternak)
+    );
+    if (peternakDoc.exists()) {
+      const peternakData = peternakDoc.data();
+      if (peternakData.statusSiklus === "Selesai") {
+        throw new Error("Program peternak ini sudah selesai");
+      }
     }
 
     // Hapus field id dari laporanData jika ada (untuk menghindari duplikasi)
@@ -96,9 +97,7 @@ export const createLaporan = async (laporanData) => {
     const finalData = {
       ...dataWithoutId,
       reportNumber: reportNumber, // Pastikan reportNumber tersimpan
-      displayPeriod: `Laporan ke-${reportNumber} ${
-        dataWithoutId.year || new Date().getFullYear()
-      }`, // Format displayPeriod yang benar
+      displayPeriod: `Laporan ke-${reportNumber}`, // Format displayPeriod yang disederhanakan
       tanggalLaporan:
         laporanData.tanggalLaporan || new Date().toISOString().split("T")[0],
       createdAt: new Date().toISOString(),
@@ -106,16 +105,27 @@ export const createLaporan = async (laporanData) => {
     };
 
     const docRef = await addDoc(collection(db, COLLECTION_LAPORAN), finalData);
-    
+
     // Update jumlah laporan di data peternak setelah berhasil membuat laporan
     try {
       await incrementJumlahLaporan(finalData.idPeternak);
-      console.log(`Successfully incremented jumlahLaporan for peternak ${finalData.idPeternak}`);
+
+      // Cek apakah sudah mencapai 8 laporan (program selesai)
+      if (existingSnapshot.docs.length + 1 >= 8) {
+        // Update status peternak menjadi "Selesai"
+        await updatePeternak(finalData.idPeternak, {
+          statusSiklus: "Selesai",
+          tanggalSelesai: new Date().toISOString().split("T")[0],
+        });
+        console.log(
+          `Program peternak ${finalData.idPeternak} telah diselesaikan (8 laporan tercapai)`
+        );
+      }
     } catch (error) {
       console.error("Error incrementing jumlahLaporan:", error);
       // Tidak throw error untuk menjaga konsistensi data laporan yang sudah berhasil dibuat
     }
-    
+
     return { id: docRef.id, ...finalData };
   } catch (error) {
     console.error("Error creating laporan:", error);
@@ -126,10 +136,9 @@ export const createLaporan = async (laporanData) => {
 // READ ALL LAPORAN
 export const getAllLaporan = async () => {
   try {
-    // Query tanpa orderBy reportNumber karena mungkin belum ada di data lama
+    // Query berdasarkan tanggalLaporan saja
     const laporanQuery = query(
       collection(db, COLLECTION_LAPORAN),
-      orderBy("year", "desc"),
       orderBy("tanggalLaporan", "desc")
     );
     const querySnapshot = await getDocs(laporanQuery);
@@ -140,12 +149,10 @@ export const getAllLaporan = async () => {
       return {
         id: doc.id,
         ...data,
-        // Pastikan reportNumber tersedia dengan fallback ke quarter
-        reportNumber: data.reportNumber || data.quarter || 1,
-        // Update displayPeriod langsung ke format "Laporan ke-"
-        displayPeriod: `Laporan ke-${data.reportNumber || data.quarter || 1} ${
-          data.year || new Date().getFullYear()
-        }`,
+        // Pastikan reportNumber tersedia
+        reportNumber: data.reportNumber,
+        // Update displayPeriod langsung ke format "Laporan ke-" tanpa tahun
+        displayPeriod: `Laporan ke-${data.reportNumber}`,
       };
     });
   } catch (error) {
@@ -157,11 +164,10 @@ export const getAllLaporan = async () => {
 // READ ALL BY PETERNNAK
 export const getLaporanByPeternak = async (idPeternak) => {
   try {
-    // Query tanpa orderBy reportNumber karena mungkin belum ada di data lama
+    // Query berdasarkan tanggalLaporan saja
     const laporanQuery = query(
       collection(db, COLLECTION_LAPORAN),
       where("idPeternak", "==", idPeternak),
-      orderBy("year", "asc"),
       orderBy("tanggalLaporan", "asc")
     );
     const querySnapshot = await getDocs(laporanQuery);
@@ -172,20 +178,15 @@ export const getLaporanByPeternak = async (idPeternak) => {
       return {
         id: doc.id,
         ...data,
-        // Pastikan reportNumber tersedia dengan fallback ke quarter
-        reportNumber: data.reportNumber || data.quarter || 1,
-        // Update displayPeriod langsung ke format "Laporan ke-"
-        displayPeriod: `Laporan ke-${data.reportNumber || data.quarter || 1} ${
-          data.year || new Date().getFullYear()
-        }`,
+        // Pastikan reportNumber tersedia
+        reportNumber: data.reportNumber,
+        // Update displayPeriod langsung ke format "Laporan ke-" tanpa tahun
+        displayPeriod: `Laporan ke-${data.reportNumber}`,
       };
     });
 
     // Sort manual berdasarkan reportNumber
     return laporanData.sort((a, b) => {
-      if (a.year !== b.year) {
-        return a.year - b.year;
-      }
       return a.reportNumber - b.reportNumber;
     });
   } catch (error) {
@@ -197,11 +198,10 @@ export const getLaporanByPeternak = async (idPeternak) => {
 // READ LATEST BY PETERNAK - untuk mendapatkan laporan terakhir peternak
 export const getLatestLaporanByPeternak = async (idPeternak) => {
   try {
-    // Query tanpa orderBy reportNumber karena mungkin belum ada di data lama
+    // Query berdasarkan tanggalLaporan saja
     const laporanQuery = query(
       collection(db, COLLECTION_LAPORAN),
       where("idPeternak", "==", idPeternak),
-      orderBy("year", "desc"),
       orderBy("tanggalLaporan", "desc")
     );
     const querySnapshot = await getDocs(laporanQuery);
@@ -212,12 +212,10 @@ export const getLatestLaporanByPeternak = async (idPeternak) => {
       return {
         id: doc.id,
         ...data,
-        // Pastikan reportNumber tersedia dengan fallback ke quarter
-        reportNumber: data.reportNumber || data.quarter || 1,
-        // Update displayPeriod langsung ke format "Laporan ke-"
-        displayPeriod: `Laporan ke-${data.reportNumber || data.quarter || 1} ${
-          data.year || new Date().getFullYear()
-        }`,
+        // Pastikan reportNumber tersedia
+        reportNumber: data.reportNumber,
+        // Update displayPeriod langsung ke format "Laporan ke-" tanpa tahun
+        displayPeriod: `Laporan ke-${data.reportNumber}`,
       };
     });
 
@@ -225,9 +223,6 @@ export const getLatestLaporanByPeternak = async (idPeternak) => {
 
     // Sort manual berdasarkan reportNumber untuk mendapatkan yang terakhir
     const sortedData = laporanData.sort((a, b) => {
-      if (a.year !== b.year) {
-        return b.year - a.year;
-      }
       return b.reportNumber - a.reportNumber;
     });
 
@@ -250,110 +245,340 @@ export const getLaporanById = async (laporanId) => {
   }
 };
 
-// UPDATE
+// UPDATE WITH CASCADING UPDATES
 export const updateLaporan = async (laporanId, updateData) => {
   try {
     // Hapus field id dari updateData jika ada (untuk menghindari duplikasi)
     const { id, ...dataWithoutId } = updateData;
 
     // Generate reportNumber jika diperlukan
-    const reportNumber = updateData.reportNumber || updateData.quarter || 1;
+    const reportNumber = updateData.reportNumber;
 
     const finalUpdateData = {
       ...dataWithoutId,
       reportNumber: reportNumber, // Pastikan reportNumber tersimpan
-      displayPeriod: `Laporan ke-${reportNumber} ${
-        dataWithoutId.year || updateData.year || new Date().getFullYear()
-      }`, // Format displayPeriod yang benar
+      displayPeriod: `Laporan ke-${reportNumber}`, // Format displayPeriod yang disederhanakan
       updatedAt: new Date().toISOString(),
     };
 
+    // Update laporan utama
     await updateDoc(doc(db, COLLECTION_LAPORAN, laporanId), finalUpdateData);
-    return { id: laporanId, ...finalUpdateData };
+
+    let cascadeResult = { updatedCount: 0, reports: [] };
+
+    // Cascading update: Update laporan-laporan berikutnya jika jumlahTernakSaatIni berubah
+    if (finalUpdateData.jumlahTernakSaatIni !== undefined) {
+      cascadeResult = await updateCascadingReports(
+        updateData.idPeternak,
+        reportNumber,
+        finalUpdateData.jumlahTernakSaatIni
+      );
+    }
+
+    return {
+      id: laporanId,
+      ...finalUpdateData,
+      cascadeUpdate: cascadeResult,
+    };
   } catch (error) {
     console.error("Error updating laporan:", error);
     throw error;
   }
 };
 
-// DELETE
+// CASCADING UPDATE FUNCTION
+const updateCascadingReports = async (
+  idPeternak,
+  fromReportNumber,
+  newTernakSaatIni
+) => {
+  try {
+    console.log(
+      `Starting cascading update from report ${fromReportNumber} with new total: ${newTernakSaatIni}`
+    );
+
+    // Ambil semua laporan peternak ini yang reportNumber-nya lebih besar dari yang diupdate
+    const nextReportsQuery = query(
+      collection(db, COLLECTION_LAPORAN),
+      where("idPeternak", "==", idPeternak)
+    );
+    const querySnapshot = await getDocs(nextReportsQuery);
+
+    // Filter dan sort laporan yang perlu diupdate
+    const allReports = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    const reportsToUpdate = allReports
+      .filter((report) => report.reportNumber > fromReportNumber)
+      .sort((a, b) => a.reportNumber - b.reportNumber);
+
+    if (reportsToUpdate.length === 0) {
+      console.log("No subsequent reports to update");
+      return { updatedCount: 0, reports: [] };
+    }
+
+    console.log(`Found ${reportsToUpdate.length} reports to cascade update`);
+
+    // Gunakan batch untuk atomic transaction
+    const batch = writeBatch(db);
+    const updatedReports = [];
+
+    // Update setiap laporan berikutnya secara berurutan
+    let currentTernakAwal = newTernakSaatIni;
+
+    for (let i = 0; i < reportsToUpdate.length; i++) {
+      const report = reportsToUpdate[i];
+
+      // Update jumlah awal ternak
+      const updatedJumlahAwal = currentTernakAwal;
+
+      // Hitung ulang jumlah saat ini berdasarkan jumlah awal yang baru
+      const jumlahLahir = report.jumlahLahir || 0;
+      const jumlahMati = report.jumlahKematian || 0;
+      const jumlahDijual = report.jumlahTerjual || 0;
+
+      const newJumlahSaatIni =
+        updatedJumlahAwal + jumlahLahir - jumlahMati - jumlahDijual;
+
+      const cascadeUpdateData = {
+        jumlahTernakAwal: updatedJumlahAwal,
+        jumlahTernakSaatIni: Math.max(0, newJumlahSaatIni), // Pastikan tidak negatif
+        updatedAt: new Date().toISOString(),
+        cascadedFrom: `Laporan ke-${fromReportNumber + 1}`, // Tracking untuk audit
+        cascadedAt: new Date().toISOString(),
+      };
+
+      // Add to batch
+      batch.update(doc(db, COLLECTION_LAPORAN, report.id), cascadeUpdateData);
+
+      updatedReports.push({
+        reportNumber: report.reportNumber,
+        oldAwal: report.jumlahTernakAwal,
+        newAwal: updatedJumlahAwal,
+        oldSaatIni: report.jumlahTernakSaatIni,
+        newSaatIni: Math.max(0, newJumlahSaatIni),
+      });
+
+      console.log(
+        `Prepared update for Report ${report.reportNumber}: awal ${updatedJumlahAwal} -> saat ini ${newJumlahSaatIni}`
+      );
+
+      // Set currentTernakAwal untuk laporan berikutnya
+      currentTernakAwal = Math.max(0, newJumlahSaatIni);
+    }
+
+    // Commit batch transaction
+    await batch.commit();
+
+    console.log(
+      `Cascading update completed for ${updatedReports.length} reports`
+    );
+
+    return {
+      updatedCount: updatedReports.length,
+      reports: updatedReports,
+    };
+  } catch (error) {
+    console.error("Error in cascading update:", error);
+    // Jangan throw error agar update laporan utama tetap berhasil
+    // Tapi return info error untuk monitoring
+    return {
+      updatedCount: 0,
+      reports: [],
+      error: error.message,
+    };
+  }
+};
+
+// DELETE WITH CASCADING UPDATES
 export const deleteLaporan = async (laporanId) => {
   try {
-    // Ambil data laporan terlebih dahulu untuk mendapatkan idPeternak
+    // Ambil data laporan terlebih dahulu untuk mendapatkan idPeternak dan reportNumber
     const laporanDoc = await getDoc(doc(db, COLLECTION_LAPORAN, laporanId));
     if (!laporanDoc.exists()) {
       throw new Error("Laporan tidak ditemukan");
     }
-    
+
     const laporanData = laporanDoc.data();
     const idPeternak = laporanData.idPeternak;
-    
+    const reportNumber = laporanData.reportNumber;
+
+    // Cari laporan sebelumnya untuk mendapatkan jumlah ternak saat ini yang akan menjadi awal untuk laporan berikutnya
+    let newTernakAwalForNext = 5; // Default jika tidak ada laporan sebelumnya
+
+    if (reportNumber > 1) {
+      // Cari laporan sebelumnya
+      const previousReportsQuery = query(
+        collection(db, COLLECTION_LAPORAN),
+        where("idPeternak", "==", idPeternak),
+        where("reportNumber", "==", reportNumber - 1)
+      );
+      const previousSnapshot = await getDocs(previousReportsQuery);
+
+      if (!previousSnapshot.empty) {
+        const previousReport = previousSnapshot.docs[0].data();
+        newTernakAwalForNext = previousReport.jumlahTernakSaatIni || 5;
+      } else {
+        // Jika tidak ada laporan sebelumnya, ambil dari data peternak
+        const peternakDoc = await getDoc(doc(db, "peternak", idPeternak));
+        if (peternakDoc.exists()) {
+          const peternakData = peternakDoc.data();
+          newTernakAwalForNext = peternakData.jumlahTernakAwal || 5;
+        }
+      }
+    } else {
+      // Jika yang dihapus adalah laporan ke-1, ambil dari data peternak
+      const peternakDoc = await getDoc(doc(db, "peternak", idPeternak));
+      if (peternakDoc.exists()) {
+        const peternakData = peternakDoc.data();
+        newTernakAwalForNext = peternakData.jumlahTernakAwal || 5;
+      }
+    }
+
     // Hapus laporan
     await deleteDoc(doc(db, COLLECTION_LAPORAN, laporanId));
-    
+
     // Update jumlah laporan di data peternak setelah berhasil menghapus laporan
     if (idPeternak) {
       try {
         await decrementJumlahLaporan(idPeternak);
-        console.log(`Successfully decremented jumlahLaporan for peternak ${idPeternak}`);
       } catch (error) {
         console.error("Error decrementing jumlahLaporan:", error);
         // Tidak throw error karena laporan sudah berhasil dihapus
       }
     }
-    
-    return { success: true };
+
+    // Cascading update: Update laporan-laporan berikutnya
+    const cascadeResult = await updateCascadingReports(
+      idPeternak,
+      reportNumber - 1,
+      newTernakAwalForNext
+    );
+
+    return {
+      success: true,
+      cascadeUpdate: {
+        ...cascadeResult,
+        deletedReportNumber: reportNumber,
+        action: "delete",
+      },
+    };
   } catch (error) {
     console.error("Error deleting laporan:", error);
     throw error;
   }
 };
 
-// SYNC JUMLAH LAPORAN - untuk sinkronisasi data yang sudah ada
+// SYNC JUMLAH LAPORAN - untuk sinkronisasi data yang sudah ada dengan perbaikan race condition
 export const syncAllPeternakJumlahLaporan = async () => {
   try {
-    console.log("Starting sync of jumlahLaporan for all peternak...");
-    
+    console.log("Starting sync process for jumlahLaporan...");
+
     // Ambil semua laporan
     const laporanSnapshot = await getDocs(collection(db, COLLECTION_LAPORAN));
-    
+
     // Kelompokkan laporan berdasarkan idPeternak
     const laporanByPeternak = {};
-    laporanSnapshot.docs.forEach(doc => {
+    laporanSnapshot.docs.forEach((doc) => {
       const laporan = doc.data();
       const idPeternak = laporan.idPeternak;
-      
+
       if (!laporanByPeternak[idPeternak]) {
         laporanByPeternak[idPeternak] = [];
       }
       laporanByPeternak[idPeternak].push(laporan);
     });
-    
-    // Update jumlahLaporan untuk setiap peternak
+
+    // Ambil semua peternak untuk memastikan yang tidak punya laporan juga di-sync
+    const peternakSnapshot = await getDocs(collection(db, "peternak"));
+    const allPeternakIds = peternakSnapshot.docs.map((doc) => doc.id);
+
+    // Update jumlahLaporan untuk setiap peternak secara berurutan (menghindari race condition)
     const syncResults = [];
-    for (const [idPeternak, laporanList] of Object.entries(laporanByPeternak)) {
+
+    for (const peternakId of allPeternakIds) {
       try {
+        const laporanList = laporanByPeternak[peternakId] || [];
         const actualJumlahLaporan = laporanList.length;
-        await syncJumlahLaporan(idPeternak, actualJumlahLaporan);
+        await syncJumlahLaporan(peternakId, actualJumlahLaporan);
+
         syncResults.push({
-          idPeternak,
+          idPeternak: peternakId,
           jumlahLaporan: actualJumlahLaporan,
-          status: 'success'
+          status: "success",
         });
+
+        console.log(
+          `Synced peternak ${peternakId}: ${actualJumlahLaporan} laporan`
+        );
       } catch (error) {
-        console.error(`Error syncing peternak ${idPeternak}:`, error);
+        console.error(`Error syncing peternak ${peternakId}:`, error);
         syncResults.push({
-          idPeternak,
-          status: 'error',
-          error: error.message
+          idPeternak: peternakId,
+          status: "error",
+          error: error.message,
         });
       }
     }
-    
-    console.log("Sync completed:", syncResults);
+
+    console.log("Sync process completed:", syncResults);
     return syncResults;
   } catch (error) {
     console.error("Error syncing jumlahLaporan:", error);
     throw error;
   }
 };
+
+// Fungsi untuk auto-sync yang lebih reliable dengan interval waktu
+export const shouldPerformSync = () => {
+  const SYNC_INTERVAL = 6 * 60 * 60 * 1000; // 6 jam dalam milliseconds
+  const lastSyncTime = localStorage.getItem("lastSyncTime");
+  const currentTime = Date.now();
+
+  // Jika tidak ada record sync sebelumnya atau sudah lebih dari 6 jam
+  return !lastSyncTime || currentTime - parseInt(lastSyncTime) > SYNC_INTERVAL;
+};
+
+// Fungsi untuk auto-sync yang lebih reliable
+export const performAutoSync = async () => {
+  try {
+    if (shouldPerformSync()) {
+      console.log("Auto-sync triggered");
+      const results = await syncAllPeternakJumlahLaporan();
+
+      // Juga sync status peternak yang selesai
+      await syncStatusPeternakSelesai();
+
+      localStorage.setItem("lastSyncTime", Date.now().toString());
+      return { performed: true, results };
+    }
+
+    return { performed: false, message: "Sync not needed yet" };
+  } catch (error) {
+    console.error("Auto-sync failed:", error);
+    // Jangan simpan lastSyncTime jika gagal, agar dicoba lagi nanti
+    throw error;
+  }
+};
+
+// Fungsi untuk memaksa sync ulang (untuk tombol manual sync)
+export const forceSync = async () => {
+  try {
+    console.log("Force sync triggered");
+    const results = await syncAllPeternakJumlahLaporan();
+
+    // Juga sync status peternak yang selesai
+    await syncStatusPeternakSelesai();
+
+    localStorage.setItem("lastSyncTime", Date.now().toString());
+    return results;
+  } catch (error) {
+    console.error("Force sync failed:", error);
+    throw error;
+  }
+};
+
+// Export fungsi sync status peternak selesai untuk penggunaan manual
+export { syncStatusPeternakSelesai };

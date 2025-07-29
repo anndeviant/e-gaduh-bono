@@ -9,6 +9,7 @@ import LaporanTable from '../../components/admin/LaporanTable';
 import AllLaporanTable from '../../components/admin/AllLaporanTable';
 import LaporanForm from '../../components/admin/LaporanForm';
 import CommonDeleteModal from '../../components/common/CommonDeleteModal';
+import CascadeUpdateModal from '../../components/common/CascadeUpdateModal';
 import { Plus, ArrowLeft, User, Eye } from 'lucide-react';
 import { getAllPeternak } from '../../services/peternakService';
 import {
@@ -17,10 +18,11 @@ import {
     createLaporan,
     updateLaporan,
     deleteLaporan,
-    syncAllPeternakJumlahLaporan
+    performAutoSync,
+    forceSync
 } from '../../services/laporanService';
-import { useLaporanNotification } from '../../hooks/useLaporanNotification';
-import NotificationToast from '../../components/common/NotificationToast';
+import useNotification from '../../hooks/useNotification';
+import Notification from '../../components/common/Notification';
 
 const LaporanPeternak = () => {
     const navigate = useNavigate();
@@ -32,12 +34,13 @@ const LaporanPeternak = () => {
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState(''); // untuk dropdown filter
     const [selectedPeternakId, setSelectedPeternakId] = useState(null);
     const [selectedLaporan, setSelectedLaporan] = useState('');
-    const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear());
     const [showAllLaporan, setShowAllLaporan] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState('peternak'); // 'peternak', 'laporan', 'add', 'edit'
     const [editingLaporan, setEditingLaporan] = useState(null);
     const [deletingLaporan, setDeletingLaporan] = useState(null);
+    const [showCascadeModal, setShowCascadeModal] = useState(false);
+    const [cascadeInfo, setCascadeInfo] = useState(null);
 
     // Logout modal hook
     const {
@@ -53,13 +56,11 @@ const LaporanPeternak = () => {
     // Notification hook
     const {
         notification,
-        clearNotification,
-        notifyLoadSuccess,
-        notifyLoadError,
-        notifyDeleteSuccess,
-        notifyDeleteError,
-        notifyActionConfirm
-    } = useLaporanNotification();
+        showSuccess,
+        showError,
+        showInfo,
+        hideNotification
+    } = useNotification();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -72,44 +73,41 @@ const LaporanPeternak = () => {
                 // Selalu ambil semua laporan terlebih dahulu untuk menghitung total per peternak
                 const allLaporanList = await getAllLaporan();
                 setAllLaporanData(allLaporanList);
-                console.log('All laporan data:', allLaporanList);
 
-                // Sync jumlahLaporan di background untuk memastikan data konsisten
-                // Hanya lakukan sync sekali saat pertama kali load
-                if (!localStorage.getItem('laporanSyncDone')) {
-                    try {
-                        console.log('Performing initial sync of jumlahLaporan...');
-                        await syncAllPeternakJumlahLaporan();
-                        localStorage.setItem('laporanSyncDone', 'true');
-                        console.log('Initial sync completed successfully');
-                        
+                // Auto-sync jumlahLaporan di background untuk memastikan data konsisten
+                // Menggunakan sistem yang lebih reliable berdasarkan interval waktu
+                try {
+                    const syncResult = await performAutoSync();
+                    if (syncResult.performed) {
+                        console.log('Auto-sync completed successfully');
                         // Refresh data peternak setelah sync
                         const updatedPeternakList = await getAllPeternak();
                         setPeternakData(updatedPeternakList);
-                    } catch (syncError) {
-                        console.error('Error during sync, but continuing with normal flow:', syncError);
+                        showInfo('Sinkronisasi Otomatis', 'Data peternak telah disinkronkan');
                     }
+                } catch (syncError) {
+                    console.error('Auto-sync failed, but continuing with normal flow:', syncError);
+                    // Tidak menampilkan error ke user karena ini adalah background process
                 }
 
                 // Jika filter peternak dipilih, ambil laporan dari firebase
                 if (selectedPeternakFilter) {
                     const laporanList = await getLaporanByPeternak(selectedPeternakFilter);
                     setLaporanData(laporanList);
-                    console.log('Laporan data for selected peternak:', laporanList);
 
                     // Show success notification untuk laporan yang difilter
-                    notifyLoadSuccess(laporanList.length);
+                    showInfo('Data Dimuat', `Total: ${laporanList.length} laporan`);
                 } else {
                     // Jika tidak ada filter, kosongkan laporanData
                     setLaporanData([]);
 
                     // Show success notification untuk semua laporan
-                    notifyLoadSuccess(allLaporanList.length);
+                    showInfo('Data Dimuat', `Total: ${allLaporanList.length} laporan`);
                 }
 
             } catch (error) {
                 console.error('Error fetching data:', error);
-                notifyLoadError(error.message);
+                showError('Error Memuat Data', 'Gagal memuat data laporan');
             }
             setLoading(false);
         };
@@ -142,33 +140,18 @@ const LaporanPeternak = () => {
     const getTotalLaporanByPeternak = (peternakId) => {
         // Ambil data peternak untuk mendapatkan jumlahLaporan dari database
         const peternakData = getPeternakById(peternakId);
-        
+
         // Jika field jumlahLaporan ada di database, gunakan itu
         if (peternakData && typeof peternakData.jumlahLaporan === 'number') {
             return peternakData.jumlahLaporan;
         }
-        
+
         // Fallback: hitung dari laporan yang ada (untuk data lama yang belum punya field jumlahLaporan)
         return getPeternakLaporan(peternakId).length;
     };
 
     const getLaporanLabel = (laporanNumber) => {
         return `Laporan ke-${laporanNumber}`;
-    };
-
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            'Baru': 'bg-gray-100 text-gray-800',
-            'Progress': 'bg-blue-100 text-blue-800',
-            'Bagus': 'bg-green-100 text-green-800',
-            'Biasa': 'bg-yellow-100 text-yellow-800',
-            'Kurang': 'bg-red-100 text-red-800'
-        };
-        return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig['Baru']}`}>
-                {status}
-            </span>
-        );
     };
 
     // Filter data
@@ -180,7 +163,7 @@ const LaporanPeternak = () => {
     const peternakOptions = peternakData.map(peternak => ({
         value: peternak.id,
         label: peternak.namaLengkap,
-        subtitle: `${peternak.statusKinerja} • ${getTotalLaporanByPeternak(peternak.id)} laporan`,
+        subtitle: `${peternak.nomorTelepon || 'No. HP tidak tersedia'} • ${getTotalLaporanByPeternak(peternak.id)} laporan`,
     }));
 
     const defaultPeternakOption = {
@@ -202,21 +185,20 @@ const LaporanPeternak = () => {
         { value: '8', label: 'Laporan ke-8', subtitle: 'Laporan kedelapan' }
     ];
 
-    // Options for Tahun filter
-    const tahunOptions = [
-        { value: '', label: 'Semua Tahun', subtitle: 'Tampilkan semua tahun' },
-        { value: 2024, label: '2024', subtitle: 'Tahun 2024' },
-        { value: 2025, label: '2025', subtitle: 'Tahun 2025' }
-    ];
+    // Options for Tahun filter - REMOVED karena sudah tidak menggunakan field year
+    // const tahunOptions = [
+    //     { value: '', label: 'Semua Tahun', subtitle: 'Tampilkan semua tahun' },
+    //     { value: 2024, label: '2024', subtitle: 'Tahun 2024' },
+    //     { value: 2025, label: '2025', subtitle: 'Tahun 2025' }
+    // ];
 
     const getFilteredLaporanByPeternak = (peternakId) => {
         // Gunakan allLaporanData untuk filter, bukan laporanData
         const peternakLaporan = allLaporanData.filter(laporan => laporan.idPeternak === peternakId);
 
         return peternakLaporan.filter(laporan => {
-            const matchLaporan = selectedLaporan === '' || laporan.reportNumber?.toString() === selectedLaporan || laporan.quarter?.toString() === selectedLaporan;
-            const matchTahun = selectedTahun === '' || laporan.year === selectedTahun;
-            return matchLaporan && matchTahun;
+            const matchLaporan = selectedLaporan === '' || laporan.reportNumber?.toString() === selectedLaporan;
+            return matchLaporan;
         });
     };
 
@@ -226,7 +208,6 @@ const LaporanPeternak = () => {
             // Ketika beralih ke mode semua laporan, reset filter
             setSelectedPeternakFilter('');
             setSelectedLaporan('');
-            setSelectedTahun('');
         }
     };
 
@@ -240,7 +221,6 @@ const LaporanPeternak = () => {
         setSelectedPeternakId(null);
         setViewMode('peternak');
         setSelectedLaporan('');
-        setSelectedTahun('');
         setEditingLaporan(null);
     };
 
@@ -250,11 +230,31 @@ const LaporanPeternak = () => {
     };
 
     const handleAddLaporan = () => {
+        // Validasi: Cek apakah status peternak sudah selesai
+        const selectedPeternak = getPeternakById(selectedPeternakId);
+        if (selectedPeternak?.statusSiklus === 'Selesai') {
+            showError(
+                'Tidak Dapat Menambah Laporan',
+                'Peternak dengan status "Selesai" tidak dapat menambahkan laporan baru.'
+            );
+            return;
+        }
+
         setEditingLaporan(null);
         setViewMode('add');
     };
 
     const handleEditLaporan = (laporan) => {
+        // Validasi: Cek apakah status peternak sudah selesai
+        const selectedPeternak = getPeternakById(selectedPeternakId);
+        if (selectedPeternak?.statusSiklus === 'Selesai') {
+            showError(
+                'Tidak Dapat Mengedit Laporan',
+                'Peternak dengan status "Selesai" tidak dapat mengedit laporan.'
+            );
+            return;
+        }
+
         setEditingLaporan(laporan);
         setViewMode('edit');
     };
@@ -273,15 +273,51 @@ const LaporanPeternak = () => {
                 idPeternak: selectedPeternakId
             };
 
+            let reportNumber = 1;
             let result;
+
             if (viewMode === 'edit' && editingLaporan) {
                 // Update laporan yang ada
+                reportNumber = editingLaporan.reportNumber;
+
+                // Cek apakah jumlah ternak saat ini berubah untuk notifikasi cascading
+                const oldJumlahSaatIni = editingLaporan.jumlahTernakSaatIni || editingLaporan.jumlah_saat_ini;
+                const newJumlahSaatIni = dataToSave.jumlahTernakSaatIni;
+
                 result = await updateLaporan(editingLaporan.id, dataToSave);
-                console.log('Laporan berhasil diupdate:', result);
+
+                // Cek cascading update result
+                if (result.cascadeUpdate && result.cascadeUpdate.updatedCount > 0) {
+                    setCascadeInfo({
+                        ...result.cascadeUpdate,
+                        reportNumber: reportNumber,
+                        action: 'update'
+                    });
+                    setShowCascadeModal(true);
+
+                    showSuccess(
+                        'Laporan Berhasil Diperbarui!',
+                        `Laporan ke-${reportNumber} diperbarui. ${result.cascadeUpdate.updatedCount} laporan berikutnya disesuaikan otomatis.`
+                    );
+                } else if (oldJumlahSaatIni !== newJumlahSaatIni) {
+                    showSuccess(
+                        'Laporan Berhasil Diperbarui!',
+                        `Laporan ke-${reportNumber} diperbarui. Tidak ada laporan berikutnya yang perlu disesuaikan.`
+                    );
+                } else {
+                    showSuccess(
+                        'Laporan Berhasil Diperbarui!',
+                        `Laporan ke-${reportNumber} berhasil diperbarui.`
+                    );
+                }
             } else {
                 // Buat laporan baru
-                result = await createLaporan(dataToSave);
-                console.log('Laporan berhasil dibuat:', result);
+                reportNumber = dataToSave.reportNumber || 1;
+                await createLaporan(dataToSave);
+                showSuccess(
+                    'Laporan Berhasil Dibuat!',
+                    `Laporan ke-${reportNumber} berhasil dibuat.`
+                );
             }
 
             // Refresh data laporan untuk peternak terpilih
@@ -296,10 +332,21 @@ const LaporanPeternak = () => {
             setViewMode('laporan');
             setEditingLaporan(null);
 
-            console.log('Redirect berhasil ke halaman laporan');
         } catch (error) {
             console.error('Error saving laporan:', error);
-            alert(`Gagal menyimpan laporan: ${error.message}`);
+
+            // Notifikasi error yang lebih informatif
+            if (error.message.includes('cascading')) {
+                showError(
+                    'Error Sinkronisasi Data',
+                    'Laporan berhasil disimpan, namun terjadi masalah saat memperbarui laporan terkait. Data mungkin perlu disinkronkan ulang.'
+                );
+            } else {
+                showError(
+                    'Gagal Menyimpan Laporan',
+                    error.message || 'Terjadi kesalahan saat menyimpan laporan'
+                );
+            }
         }
     };
 
@@ -310,6 +357,16 @@ const LaporanPeternak = () => {
     };
 
     const handleShowDeleteConfirm = (laporan) => {
+        // Validasi: Cek apakah status peternak sudah selesai
+        const selectedPeternak = getPeternakById(selectedPeternakId);
+        if (selectedPeternak?.statusSiklus === 'Selesai') {
+            showError(
+                'Tidak Dapat Menghapus Laporan',
+                'Peternak dengan status "Selesai" tidak dapat menghapus laporan.'
+            );
+            return;
+        }
+
         setDeletingLaporan(laporan);
     };
 
@@ -321,9 +378,11 @@ const LaporanPeternak = () => {
         try {
             // Show processing notification
             const peternakName = getPeternakById(deletingLaporan.idPeternak)?.namaLengkap || 'Peternak';
-            notifyActionConfirm('Menghapus laporan', peternakName);
+            const reportNumber = deletingLaporan.reportNumber;
 
-            await deleteLaporan(deletingLaporan.id);
+            showInfo('Memproses...', `Menghapus laporan untuk ${peternakName}`);
+
+            const result = await deleteLaporan(deletingLaporan.id);
 
             // Refresh data laporan untuk peternak terpilih
             const laporanList = await getLaporanByPeternak(selectedPeternakId);
@@ -333,18 +392,39 @@ const LaporanPeternak = () => {
             const allLaporan = await getAllLaporan();
             setAllLaporanData(allLaporan);
 
-            // Show success notification
-            notifyDeleteSuccess(
-                peternakName,
-                deletingLaporan.reportNumber || deletingLaporan.quarter || deletingLaporan.quarterNumber || deletingLaporan.triwulan,
-                deletingLaporan.year || deletingLaporan.quarterInfo?.year || deletingLaporan.tahun
-            );
+            // Cek cascading update result
+            if (result.cascadeUpdate && result.cascadeUpdate.updatedCount > 0) {
+                setCascadeInfo({
+                    ...result.cascadeUpdate,
+                    reportNumber: reportNumber,
+                    action: 'delete'
+                });
+                setShowCascadeModal(true);
+
+                showSuccess(
+                    'Laporan Berhasil Dihapus!',
+                    `Laporan ke-${reportNumber} untuk ${peternakName} telah dihapus. ${result.cascadeUpdate.updatedCount} laporan berikutnya disesuaikan otomatis.`
+                );
+            } else {
+                // Show success notification
+                showSuccess(
+                    'Laporan Berhasil Dihapus!',
+                    `Laporan ke-${reportNumber} untuk ${peternakName} telah dihapus.`
+                );
+            }
 
             setDeletingLaporan(null);
-            console.log('Laporan berhasil dihapus dan data direfresh');
         } catch (error) {
             console.error('Error deleting laporan:', error);
-            notifyDeleteError(error.message);
+
+            if (error.message.includes('cascading')) {
+                showError(
+                    'Error Sinkronisasi Data',
+                    'Laporan berhasil dihapus, namun terjadi masalah saat memperbarui laporan terkait. Data mungkin perlu disinkronkan ulang.'
+                );
+            } else {
+                showError('Gagal Menghapus Laporan', 'Terjadi kesalahan saat menghapus laporan.');
+            }
         } finally {
             setDeleteLoading(false);
         }
@@ -354,20 +434,18 @@ const LaporanPeternak = () => {
     const handleManualSync = async () => {
         setSyncLoading(true);
         try {
-            console.log('Starting manual sync of jumlahLaporan...');
-            notifyActionConfirm('Sinkronisasi', 'data jumlah laporan');
-            
-            await syncAllPeternakJumlahLaporan();
-            
+            showInfo('Memproses...', 'Melakukan sinkronisasi data jumlah laporan');
+
+            await forceSync();
+
             // Refresh data peternak setelah sync
             const updatedPeternakList = await getAllPeternak();
             setPeternakData(updatedPeternakList);
-            
-            notifyLoadSuccess('Sinkronisasi berhasil');
-            console.log('Manual sync completed successfully');
+
+            showSuccess('Sinkronisasi Berhasil!', 'Data peternak telah disinkronkan dengan laporan.');
         } catch (error) {
             console.error('Error during manual sync:', error);
-            notifyLoadError(`Gagal sinkronisasi: ${error.message}`);
+            showError('Gagal Sinkronisasi', `Gagal melakukan sinkronisasi: ${error.message}`);
         } finally {
             setSyncLoading(false);
         }
@@ -504,7 +582,7 @@ const LaporanPeternak = () => {
                                                                 Peternak
                                                             </th>
                                                             <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                                Total Laporan
+                                                                Status
                                                             </th>
                                                             <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                                 Laporan Terakhir
@@ -517,7 +595,6 @@ const LaporanPeternak = () => {
                                                     <tbody className="bg-white divide-y divide-gray-200">
                                                         {filteredPeternak.map((peternak) => {
                                                             const latestLaporan = getLatestLaporan(peternak.id);
-                                                            const totalLaporanPeternak = getTotalLaporanByPeternak(peternak.id);
 
                                                             return (
                                                                 <tr
@@ -533,38 +610,50 @@ const LaporanPeternak = () => {
                                                                                 <div className="text-sm font-medium text-gray-900">
                                                                                     {peternak.namaLengkap}
                                                                                 </div>
-                                                                                <div className="mt-1">
-                                                                                    {getStatusBadge(peternak.statusKinerja)}
+                                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                                    {peternak.nomorTelepon || 'No. HP tidak tersedia'}
                                                                                 </div>
                                                                             </div>
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
                                                                         <div className="flex items-center justify-center">
-                                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                                {totalLaporanPeternak} laporan
-                                                                            </span>
-                                                                            {/* Indikator sumber data */}
-                                                                            {typeof peternak.jumlahLaporan === 'number' ? (
-                                                                                <span className="ml-1 w-2 h-2 bg-green-400 rounded-full" title="Data dari database"></span>
+                                                                            {peternak.statusSiklus === 'Selesai' ? (
+                                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                    Selesai
+                                                                                </span>
                                                                             ) : (
-                                                                                <span className="ml-1 w-2 h-2 bg-orange-400 rounded-full" title="Data dihitung (perlu sync)"></span>
+                                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                    Berjalan
+                                                                                </span>
                                                                             )}
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                        {latestLaporan ? (
-                                                                            <div className="text-sm">
-                                                                                <div className="font-medium text-gray-900">
-                                                                                    {getLaporanLabel(latestLaporan.reportNumber || latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan)}
-                                                                                </div>
-                                                                                <div className="text-gray-500 text-xs">
-                                                                                    {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID')}
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-gray-500 text-sm">-</span>
-                                                                        )}
+                                                                        {(() => {
+                                                                            const totalLaporan = getTotalLaporanByPeternak(peternak.id);
+                                                                            const latestLaporan = getLatestLaporan(peternak.id);
+
+                                                                            // Jika ada field jumlahLaporan di database dan > 0, gunakan itu
+                                                                            if (totalLaporan > 0) {
+                                                                                return (
+                                                                                    <div className="text-sm">
+                                                                                        <div className="font-medium text-gray-900">
+                                                                                            {getLaporanLabel(totalLaporan)}
+                                                                                        </div>
+                                                                                        <div className="text-gray-500 text-xs">
+                                                                                            {latestLaporan ?
+                                                                                                new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID') :
+                                                                                                '-'
+                                                                                            }
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+
+                                                                            // Fallback: jika tidak ada data laporan sama sekali
+                                                                            return <span className="text-gray-500 text-sm">-</span>;
+                                                                        })()}
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
                                                                         <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 mx-auto" />
@@ -630,34 +719,44 @@ const LaporanPeternak = () => {
                                                     </div>
                                                     <div className="lg:text-right">
                                                         <div className="inline-block bg-gray-100 rounded-lg px-3 py-2">
-                                                            {latestLaporan ? (
-                                                                <div className="text-sm text-gray-700">
-                                                                    <span className="font-medium">Laporan Terakhir: </span>
-                                                                    <span className="font-medium text-gray-900">
-                                                                        {getLaporanLabel(latestLaporan.reportNumber || latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan)} {latestLaporan.year || latestLaporan.quarterInfo?.year || latestLaporan.tahun}
-                                                                    </span>
-                                                                    <span className="mx-1">•</span>
-                                                                    <span>
-                                                                        {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
-                                                                            day: 'numeric',
-                                                                            month: 'long',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-sm text-gray-500">
-                                                                    <span className="font-medium">Laporan Terakhir: </span>
-                                                                    <span>Belum ada laporan</span>
-                                                                </div>
-                                                            )}
+                                                            {(() => {
+                                                                const totalLaporan = getTotalLaporanByPeternak(selectedPeternakId);
+                                                                const latestLaporan = getLatestLaporan(selectedPeternakId);
+
+                                                                if (totalLaporan > 0) {
+                                                                    return (
+                                                                        <div className="text-sm text-gray-700">
+                                                                            <span className="font-medium">Laporan Terakhir: </span>
+                                                                            <span className="font-medium text-gray-900">
+                                                                                {getLaporanLabel(totalLaporan)}
+                                                                            </span>
+                                                                            <span className="mx-1">•</span>
+                                                                            <span>
+                                                                                {latestLaporan ?
+                                                                                    new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
+                                                                                        day: 'numeric',
+                                                                                        month: 'long',
+                                                                                        year: 'numeric'
+                                                                                    }) : '-'
+                                                                                }
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <div className="text-sm text-gray-500">
+                                                                        <span className="font-medium">Laporan Terakhir: </span>
+                                                                        <span>Belum ada laporan</span>
+                                                                    </div>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Filter Laporan dan Tahun */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                                    {/* Filter Laporan */}
+                                                {/* Filter Laporan */}
+                                                <div className="mb-4">
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
                                                             Filter Laporan
@@ -674,39 +773,36 @@ const LaporanPeternak = () => {
                                                             noResultsText="Laporan tidak ditemukan"
                                                         />
                                                     </div>
-
-                                                    {/* Filter Tahun */}
-                                                    <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                            Filter Tahun
-                                                        </label>
-                                                        <SearchableDropdown
-                                                            options={tahunOptions}
-                                                            value={selectedTahun}
-                                                            onChange={setSelectedTahun}
-                                                            placeholder="Pilih tahun..."
-                                                            searchPlaceholder="Cari tahun..."
-                                                            displayKey="label"
-                                                            valueKey="value"
-                                                            searchKeys={['label']}
-                                                            noResultsText="Tahun tidak ditemukan"
-                                                        />
-                                                    </div>
                                                 </div>
 
                                                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                                     <div className="text-sm text-gray-500">
                                                         Menampilkan <span className="font-medium">{laporanPeternak.length}</span> laporan
                                                         {selectedLaporan && ` untuk ${getLaporanLabel(selectedLaporan)}`}
-                                                        {` tahun ${selectedTahun}`}
                                                     </div>
-                                                    <button
-                                                        onClick={handleAddLaporan}
-                                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
-                                                    >
-                                                        <Plus className="h-4 w-4 mr-2" />
-                                                        Tambah Laporan
-                                                    </button>
+                                                    {selectedPeternak?.statusSiklus === 'Selesai' ? (
+                                                        <div className="flex flex-col items-center sm:items-end gap-2">
+                                                            <button
+                                                                disabled
+                                                                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed w-full sm:w-auto justify-center"
+                                                                title="Tidak dapat menambah laporan karena status peternak sudah selesai"
+                                                            >
+                                                                <Plus className="h-4 w-4 mr-2" />
+                                                                Tambah Laporan
+                                                            </button>
+                                                            <div className="text-xs text-orange-600 font-medium">
+                                                                Status: Selesai - Tidak dapat menambah laporan baru
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={handleAddLaporan}
+                                                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
+                                                        >
+                                                            <Plus className="h-4 w-4 mr-2" />
+                                                            Tambah Laporan
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -715,6 +811,7 @@ const LaporanPeternak = () => {
                                                 laporan={laporanPeternak}
                                                 onEdit={handleEditLaporan}
                                                 onDelete={handleShowDeleteConfirm}
+                                                isReadOnly={selectedPeternak?.statusSiklus === 'Selesai'}
                                             />
                                         </>
                                     );
@@ -742,7 +839,7 @@ const LaporanPeternak = () => {
                                                     </h1>
                                                     <p className="text-gray-600 mt-2">
                                                         {viewMode === 'edit'
-                                                            ? `Mengubah ${getLaporanLabel(editingLaporan?.reportNumber || editingLaporan?.quarter || editingLaporan?.triwulan)} ${editingLaporan?.year || editingLaporan?.tahun} untuk ${selectedPeternak?.namaLengkap}`
+                                                            ? `Mengubah ${getLaporanLabel(editingLaporan?.reportNumber)} untuk ${selectedPeternak?.namaLengkap}`
                                                             : `Buat laporan baru untuk ${selectedPeternak?.namaLengkap}`
                                                         }
                                                     </p>
@@ -773,12 +870,23 @@ const LaporanPeternak = () => {
                     item={deletingLaporan}
                     type="item"
                     title="Hapus Laporan"
-                    customMessage={`Apakah Anda yakin ingin menghapus ${getLaporanLabel(deletingLaporan.reportNumber || deletingLaporan.quarterNumber || deletingLaporan.quarter || deletingLaporan.triwulan)} ${deletingLaporan.year || deletingLaporan.quarterInfo?.year || deletingLaporan.tahun}? Tindakan ini tidak dapat diurungkan.`}
+                    customMessage={`Apakah Anda yakin ingin menghapus ${getLaporanLabel(deletingLaporan.reportNumber)}? Tindakan ini tidak dapat diurungkan.`}
                     onConfirm={handleDeleteLaporan}
                     onCancel={() => setDeletingLaporan(null)}
                     loading={deleteLoading}
                 />
             )}
+
+            {/* Cascade Update Modal */}
+            <CascadeUpdateModal
+                isOpen={showCascadeModal}
+                onClose={() => {
+                    setShowCascadeModal(false);
+                    setCascadeInfo(null);
+                }}
+                cascadeInfo={cascadeInfo}
+                action={cascadeInfo?.action || 'update'}
+            />
 
             {/* Logout Modal */}
             <LogoutModal
@@ -788,12 +896,15 @@ const LaporanPeternak = () => {
                 userName={userToLogout?.fullName}
             />
 
-            {/* Notification Toast */}
-            <NotificationToast
-                notification={notification}
-                onClose={clearNotification}
-                position="top-right"
-                autoHideDuration={5000}
+            {/* Notification Component */}
+            <Notification
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                isVisible={notification.isVisible}
+                onClose={hideNotification}
+                autoClose={notification.autoClose}
+                duration={notification.duration}
             />
         </div>
     );

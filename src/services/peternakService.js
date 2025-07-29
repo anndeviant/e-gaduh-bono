@@ -4,10 +4,10 @@ import {
   getDocs,
   doc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   getDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 
@@ -117,18 +117,34 @@ export const updatePeternak = async (peternakId, updateData) => {
 // DELETE
 export const deletePeternak = async (peternakId) => {
   try {
-    // Tambahan: Hapus juga semua laporan yang terkait dengan peternak ini (opsional)
+    // Menggunakan batch untuk memastikan konsistensi data dan menghindari race condition
+    const batch = writeBatch(db);
+
+    // Ambil semua laporan yang terkait dengan peternak ini
     const laporanQuery = query(
       collection(db, "laporan"),
       where("idPeternak", "==", peternakId)
     );
     const laporanSnapshot = await getDocs(laporanQuery);
-    laporanSnapshot.forEach(async (laporanDoc) => {
-      await deleteDoc(doc(db, "laporan", laporanDoc.id));
+
+    // Tambahkan operasi delete untuk semua laporan ke batch
+    laporanSnapshot.docs.forEach((laporanDoc) => {
+      batch.delete(doc(db, "laporan", laporanDoc.id));
     });
 
-    await deleteDoc(doc(db, COLLECTION_PETERNAK, peternakId));
-    return { success: true };
+    // Tambahkan operasi delete untuk peternak ke batch
+    batch.delete(doc(db, COLLECTION_PETERNAK, peternakId));
+
+    // Commit semua operasi sekaligus untuk konsistensi data
+    await batch.commit();
+
+    console.log(
+      `Successfully deleted peternak ${peternakId} and ${laporanSnapshot.docs.length} related laporan`
+    );
+    return {
+      success: true,
+      deletedLaporan: laporanSnapshot.docs.length,
+    };
   } catch (error) {
     console.error("Error deleting peternak:", error);
     throw error;
@@ -164,4 +180,83 @@ export const decrementJumlahLaporan = async (peternakId) => {
 
 export const syncJumlahLaporan = async (peternakId, actualJumlahLaporan) => {
   await updateJumlahLaporan(peternakId, actualJumlahLaporan);
+
+  // Jika sudah mencapai 8 laporan, update status menjadi "Selesai"
+  if (actualJumlahLaporan >= 8) {
+    try {
+      const peternakDoc = await getDoc(
+        doc(db, COLLECTION_PETERNAK, peternakId)
+      );
+      if (peternakDoc.exists()) {
+        const peternakData = peternakDoc.data();
+        if (peternakData.statusSiklus !== "Selesai") {
+          await updatePeternak(peternakId, {
+            statusSiklus: "Selesai",
+            tanggalSelesai: new Date().toISOString().split("T")[0],
+          });
+          console.log(
+            `Status peternak ${peternakId} diubah menjadi Selesai (8 laporan tercapai)`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error updating status peternak saat sync:", error);
+    }
+  }
+};
+
+// Fungsi untuk mengecek dan memperbarui status semua peternak yang sudah selesai
+export const syncStatusPeternakSelesai = async () => {
+  try {
+    console.log("Starting sync status peternak selesai...");
+
+    // Ambil semua peternak
+    const peternakSnapshot = await getDocs(collection(db, COLLECTION_PETERNAK));
+    const updateResults = [];
+
+    for (const peternakDoc of peternakSnapshot.docs) {
+      const peternakData = peternakDoc.data();
+      const peternakId = peternakDoc.id;
+
+      // Jika jumlahLaporan >= 8 tapi status bukan "Selesai"
+      if (
+        peternakData.jumlahLaporan >= 8 &&
+        peternakData.statusSiklus !== "Selesai"
+      ) {
+        try {
+          await updatePeternak(peternakId, {
+            statusSiklus: "Selesai",
+            tanggalSelesai:
+              peternakData.tanggalSelesai ||
+              new Date().toISOString().split("T")[0],
+          });
+
+          updateResults.push({
+            id: peternakId,
+            nama: peternakData.namaLengkap,
+            jumlahLaporan: peternakData.jumlahLaporan,
+            status: "updated",
+          });
+
+          console.log(
+            `Status peternak ${peternakData.namaLengkap} (${peternakId}) diubah menjadi Selesai`
+          );
+        } catch (error) {
+          console.error(`Error updating status peternak ${peternakId}:`, error);
+          updateResults.push({
+            id: peternakId,
+            nama: peternakData.namaLengkap,
+            status: "error",
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    console.log("Sync status peternak selesai completed:", updateResults);
+    return updateResults;
+  } catch (error) {
+    console.error("Error syncing status peternak selesai:", error);
+    throw error;
+  }
 };

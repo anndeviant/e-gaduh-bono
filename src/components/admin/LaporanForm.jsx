@@ -1,22 +1,17 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, CheckCircle, Info, TrendingUp } from 'lucide-react';
-import { useLaporanNotification } from '../../hooks/useLaporanNotification';
-import NotificationToast from '../common/NotificationToast';
+import { CheckCircle, Info, AlertCircle, TrendingUp, FileText } from 'lucide-react';
 import { getLaporanByPeternak } from '../../services/laporanService';
+import { getFieldValue, validateNumericField } from '../../utils/dataUtils';
+import useNotification from '../../hooks/useNotification';
+import Notification from '../common/Notification';
 
 /**
  * LaporanForm Component
  * 
  * Komponen form untuk membuat atau mengedit laporan peternak.
  * 
- * Fitur Ut                            {(!laporan && prefillInfo) && (
-                                <p className="mt-1 text-xs text-gray-500">
-                                    {prefillInfo.fromPreviousReport 
-                                        ? `Dari Laporan ke-${prefillInfo.previousReportNumber}`
-                                        : 'Dari data registrasi peternak'
-                                    }
-                                </p>
-                            )} - Sistem berkesinambungan: jumlah ternak awal laporan berikutnya diambil dari jumlah ternak saat ini laporan sebelumnya
+ * Fitur Utama:
+ * - Sistem berkesinambungan: jumlah ternak awal laporan berikutnya diambil dari jumlah ternak saat ini laporan sebelumnya
  * - Validasi maksimal 8 laporan (2 tahun program gaduhan)
  * - Auto-calculate jumlah ternak saat ini berdasarkan formula: awal + lahir - mati - dijual
  * - Validasi duplikasi laporan ke-N
@@ -48,18 +43,17 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [canCreateReport, setCanCreateReport] = useState(false);
+    const [cannotCreateReason, setCannotCreateReason] = useState('');
 
     // Notification hook
     const {
         notification,
-        clearNotification,
-        notifyCreateSuccess,
-        notifyCreateError,
-        notifyUpdateSuccess,
-        notifyUpdateError,
-        notifyValidationError,
-        notifyActionConfirm
-    } = useLaporanNotification();
+        showSuccess,
+        showError,
+        showWarning,
+        showInfo,
+        hideNotification
+    } = useNotification();
 
     useEffect(() => {
         const loadReportInfo = async () => {
@@ -67,10 +61,16 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                 if (!laporan) {
                     // Mode tambah laporan baru - dengan kontinuitas data
                     if (peternakData) {
+                        // Cek status peternak terlebih dahulu
+                        if (peternakData.statusSiklus === "Selesai") {
+                            setCanCreateReport(false);
+                            setCannotCreateReason('Program peternak ini sudah selesai.');
+                            setInitialLoading(false);
+                            return;
+                        }
+
                         // Ambil semua laporan peternak ini untuk menentukan laporan berikutnya
                         const existingLaporan = await getLaporanByPeternak(peternakId);
-                        console.log('Existing laporan for peternak:', existingLaporan);
-
                         let nextReportNumber = 1;
                         let jumlahTernakAwal = peternakData.jumlahTernakAwal || 5; // Default dari data peternak
                         let latestLaporan = null;
@@ -79,6 +79,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                             // Validasi maksimal 8 laporan
                             if (existingLaporan.length >= 8) {
                                 setCanCreateReport(false);
+                                setCannotCreateReason('Program peternak ini sudah selesai (maksimal 8 laporan tercapai). Program gaduhan berlangsung maksimal 2 tahun (8 laporan).');
                                 setInitialLoading(false);
                                 return;
                             }
@@ -89,7 +90,6 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                             });
 
                             latestLaporan = sortedLaporan[0];
-                            console.log('Latest laporan:', latestLaporan);
 
                             // Tentukan nomor laporan berikutnya
                             nextReportNumber = latestLaporan.reportNumber + 1;
@@ -100,10 +100,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
 
                         const reportInfo = {
                             reportNumber: nextReportNumber,
-                            year: new Date().getFullYear(),
-                            startDate: peternakData.tanggalDaftar || new Date().toISOString().split('T')[0],
-                            endDate: new Date().toISOString().split('T')[0],
-                            displayPeriod: `Laporan ke-${nextReportNumber} ${new Date().getFullYear()}`
+                            displayPeriod: `Laporan ke-${nextReportNumber}`
                         };
 
                         setReportInfo({
@@ -118,8 +115,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                             jumlah_awal: jumlahTernakAwal,
                             jumlah_saat_ini: jumlahTernakAwal,
                             fromPreviousReport: latestLaporan ? true : false,
-                            previousReportNumber: latestLaporan ? latestLaporan.reportNumber : null,
-                            previousYear: latestLaporan ? latestLaporan.year : null
+                            previousReportNumber: latestLaporan ? latestLaporan.reportNumber : null
                         };
                         setPrefillInfo(prefill);
 
@@ -139,11 +135,11 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                     // Mode edit laporan existing
                     setCanCreateReport(true);
                     setFormData({
-                        jumlah_awal: laporan.jumlahTernakAwal?.toString() || laporan.jumlah_awal?.toString() || '',
-                        jumlah_lahir: laporan.jumlahLahir?.toString() || laporan.jumlah_lahir?.toString() || '',
-                        jumlah_mati: laporan.jumlahKematian?.toString() || laporan.jumlah_mati?.toString() || '',
-                        jumlah_dijual: laporan.jumlahTerjual?.toString() || laporan.jumlah_dijual?.toString() || '',
-                        jumlah_saat_ini: laporan.jumlahTernakSaatIni?.toString() || laporan.jumlah_saat_ini?.toString() || '',
+                        jumlah_awal: getFieldValue(laporan, 'jumlahTernakAwal', '').toString(),
+                        jumlah_lahir: getFieldValue(laporan, 'jumlahLahir', '').toString(),
+                        jumlah_mati: getFieldValue(laporan, 'jumlahKematian', '').toString(),
+                        jumlah_dijual: getFieldValue(laporan, 'jumlahTerjual', '').toString(),
+                        jumlah_saat_ini: getFieldValue(laporan, 'jumlahTernakSaatIni', '').toString(),
                         kendala: laporan.kendala || '',
                         solusi: laporan.solusi || '',
                         keterangan: laporan.catatan || laporan.keterangan || '',
@@ -152,11 +148,10 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
 
                     // Set report info dari laporan yang sedang diedit
                     setReportInfo({
-                        reportNumber: laporan.reportNumber || laporan.quarter,
+                        reportNumber: laporan.reportNumber,
                         reportInfo: laporan.reportInfo || {
-                            reportNumber: laporan.reportNumber || laporan.quarter,
-                            year: laporan.year,
-                            displayPeriod: laporan.displayPeriod || `Laporan ke-${laporan.reportNumber || laporan.quarter} ${laporan.year}`
+                            reportNumber: laporan.reportNumber,
+                            displayPeriod: laporan.displayPeriod || `Laporan ke-${laporan.reportNumber}`
                         }
                     });
                 }
@@ -191,28 +186,33 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
     const validateForm = () => {
         const newErrors = {};
 
-        // Validasi jumlah
+        // Validasi jumlah dengan helper function
+        const jumlahAwal = validateNumericField(formData.jumlah_awal);
+        const jumlahLahir = validateNumericField(formData.jumlah_lahir);
+        const jumlahMati = validateNumericField(formData.jumlah_mati);
+        const jumlahDijual = validateNumericField(formData.jumlah_dijual);
+
         if (!formData.jumlah_awal.trim()) {
             newErrors.jumlah_awal = 'Jumlah awal harus diisi';
-        } else if (isNaN(formData.jumlah_awal) || parseInt(formData.jumlah_awal) < 0) {
+        } else if (jumlahAwal < 0) {
             newErrors.jumlah_awal = 'Jumlah awal harus berupa angka positif';
         }
 
         if (!formData.jumlah_lahir.trim()) {
             newErrors.jumlah_lahir = 'Jumlah lahir harus diisi (minimal 0)';
-        } else if (isNaN(formData.jumlah_lahir) || parseInt(formData.jumlah_lahir) < 0) {
+        } else if (jumlahLahir < 0) {
             newErrors.jumlah_lahir = 'Jumlah lahir harus berupa angka positif atau 0';
         }
 
         if (!formData.jumlah_mati.trim()) {
             newErrors.jumlah_mati = 'Jumlah mati harus diisi (minimal 0)';
-        } else if (isNaN(formData.jumlah_mati) || parseInt(formData.jumlah_mati) < 0) {
+        } else if (jumlahMati < 0) {
             newErrors.jumlah_mati = 'Jumlah mati harus berupa angka positif atau 0';
         }
 
         if (!formData.jumlah_dijual.trim()) {
             newErrors.jumlah_dijual = 'Jumlah dijual harus diisi (minimal 0)';
-        } else if (isNaN(formData.jumlah_dijual) || parseInt(formData.jumlah_dijual) < 0) {
+        } else if (jumlahDijual < 0) {
             newErrors.jumlah_dijual = 'Jumlah dijual harus berupa angka positif atau 0';
         }
 
@@ -242,7 +242,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
         // Show validation notification if there are errors
         if (Object.keys(newErrors).length > 0) {
             const firstError = Object.values(newErrors)[0];
-            notifyValidationError(firstError);
+            showWarning('Data Tidak Valid', firstError);
         }
 
         return Object.keys(newErrors).length === 0;
@@ -267,19 +267,15 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
         try {
             // Show processing notification
             const action = laporan ? 'Memperbarui' : 'Menyimpan';
-            notifyActionConfirm(action, peternakData?.namaLengkap || 'peternak ini');
+            showInfo('Memproses...', `${action} laporan untuk ${peternakData?.namaLengkap || 'peternak ini'}`);
 
             // Hanya kirim field yang dibutuhkan Firestore
             const dataToSave = {
                 idPeternak: peternakId,
                 reportNumber: reportInfo?.reportNumber || reportInfo?.reportInfo?.reportNumber || 1,
-                year: reportInfo?.reportInfo?.year || new Date().getFullYear(),
-                startDate: reportInfo?.reportInfo?.startDate || new Date().toISOString().split('T')[0],
-                endDate: reportInfo?.reportInfo?.endDate || new Date().toISOString().split('T')[0],
-                displayPeriod: reportInfo?.reportInfo?.displayPeriod || `Laporan ke-${reportInfo?.reportNumber || 1} ${reportInfo?.reportInfo?.year || new Date().getFullYear()}`,
+                displayPeriod: reportInfo?.reportInfo?.displayPeriod || `Laporan ke-${reportInfo?.reportNumber || 1}`,
                 jumlahTernakAwal: parseInt(formData.jumlah_awal) || 0,
                 jumlahTernakSaatIni: parseInt(formData.jumlah_saat_ini) || 0,
-                targetPengembalian: peternakData?.targetPengembalian || 0,
                 jumlahKematian: parseInt(formData.jumlah_mati) || 0,
                 jumlahLahir: parseInt(formData.jumlah_lahir) || 0,
                 jumlahTerjual: parseInt(formData.jumlah_dijual) || 0,
@@ -297,19 +293,17 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                     id: laporan.id,
                     ...dataToSave
                 };
-                notifyUpdateSuccess(
-                    peternakData?.namaLengkap || 'Peternak',
-                    dataToSave.reportNumber,
-                    dataToSave.year
+                showSuccess(
+                    'Laporan Berhasil Diperbarui!',
+                    `Laporan ke-${dataToSave.reportNumber} untuk ${peternakData?.namaLengkap || 'Peternak'} telah diperbarui.`
                 );
             } else {
                 // Untuk create, langsung return data yang akan dibuat tanpa memanggil createLaporan
                 // Biarkan parent component yang menangani actual create
                 result = dataToSave;
-                notifyCreateSuccess(
-                    peternakData?.namaLengkap || 'Peternak',
-                    dataToSave.reportNumber,
-                    dataToSave.year
+                showSuccess(
+                    'Laporan Berhasil Dibuat!',
+                    `Laporan ke-${dataToSave.reportNumber} untuk ${peternakData?.namaLengkap || 'Peternak'} telah tersimpan.`
                 );
             }
 
@@ -318,9 +312,9 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
             console.error('Error saving laporan:', error);
 
             if (laporan) {
-                notifyUpdateError(error.message);
+                showError('Gagal Memperbarui Laporan', 'Terjadi kesalahan saat memperbarui laporan. Silakan coba lagi.');
             } else {
-                notifyCreateError(error.message);
+                showError('Gagal Membuat Laporan', 'Terjadi kesalahan saat membuat laporan. Silakan coba lagi.');
             }
 
             setErrors({ submit: error.message });
@@ -347,8 +341,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                     <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak Dapat Membuat Laporan</h3>
                     <p className="text-gray-600 mb-4">
-                        Program peternak ini sudah selesai (maksimal 8 laporan) atau terdapat masalah dalam data.
-                        Program gaduhan berlangsung maksimal 2 tahun (8 laporan).
+                        {cannotCreateReason || 'Program peternak ini sudah selesai (maksimal 8 laporan) atau terdapat masalah dalam data. Program gaduhan berlangsung maksimal 2 tahun (8 laporan).'}
                     </p>
                     <button
                         onClick={onCancel}
@@ -468,7 +461,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                             {(!laporan && prefillInfo) && (
                                 <p className="mt-1 text-xs text-gray-500">
                                     {prefillInfo.fromPreviousReport
-                                        ? `Dari Laporan ke-${prefillInfo.previousQuarter} ${prefillInfo.previousYear}`
+                                        ? `Dari Laporan ke-${prefillInfo.previousReportNumber}`
                                         : 'Dari data registrasi peternak'
                                     }
                                 </p>
@@ -628,12 +621,15 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                 </div>
             </form>
 
-            {/* Notification Toast */}
-            <NotificationToast
-                notification={notification}
-                onClose={clearNotification}
-                position="top-right"
-                autoHideDuration={5000}
+            {/* Notification Component */}
+            <Notification
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                isVisible={notification.isVisible}
+                onClose={hideNotification}
+                autoClose={notification.autoClose}
+                duration={notification.duration}
             />
         </div>
     );
