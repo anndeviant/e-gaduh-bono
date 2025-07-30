@@ -1,5 +1,3 @@
-import { TrendingUp, TrendingDown } from 'lucide-react';
-
 const StatsCard = ({ stats }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -12,17 +10,6 @@ const StatsCard = ({ stats }) => {
               <div className="flex items-center justify-between mb-4">
                 <div className={`${stat.color} rounded-lg p-3`}>
                   <Icon className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex items-center text-sm">
-                  {stat.changeType === 'increase' ? (
-                    <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-red-600 mr-1" />
-                  )}
-                  <span className={`font-medium ${stat.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                    {stat.change}
-                  </span>
                 </div>
               </div>
 

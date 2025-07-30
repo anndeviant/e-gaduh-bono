@@ -415,29 +415,30 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                 <div>
                     <h4 className="text-lg font-medium text-gray-900 mb-4">Data Kambing Laporan Ini</h4>
 
-                    {/* Tanggal Laporan */}
-                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tanggal Laporan Pertemuan *
-                        </label>
-                        <input
-                            type="date"
-                            name="tanggal_laporan"
-                            value={formData.tanggal_laporan}
-                            onChange={handleChange}
-                            max={new Date().toISOString().split('T')[0]} // Tidak boleh pilih tanggal masa depan
-                            className={`block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${errors.tanggal_laporan
-                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
-                                }`}
-                        />
-                        <p className="mt-1 text-xs text-blue-600">
-                            Tanggal saat pertemuan dilakukan untuk pencatatan laporan ini
-                        </p>
-                        {errors.tanggal_laporan && <p className="mt-1 text-sm text-red-600">{errors.tanggal_laporan}</p>}
-                    </div>
-
+                    {/* Grid Layout 3 Kolom 2 Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                        {/* Row 1 - Tanggal Laporan, Jumlah Awal, Jumlah Lahir */}
+
+                        {/* Tanggal Laporan */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Tanggal Laporan Pertemuan *
+                            </label>
+                            <input
+                                type="date"
+                                name="tanggal_laporan"
+                                value={formData.tanggal_laporan}
+                                onChange={handleChange}
+                                max={new Date().toISOString().split('T')[0]} // Tidak boleh pilih tanggal masa depan
+                                className={`block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${errors.tanggal_laporan
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
+                                    }`}
+                            />
+                            {errors.tanggal_laporan && <p className="mt-1 text-sm text-red-600">{errors.tanggal_laporan}</p>}
+                        </div>
+
                         {/* Jumlah Awal */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -487,6 +488,8 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                             {errors.jumlah_lahir && <p className="mt-1 text-sm text-red-600">{errors.jumlah_lahir}</p>}
                         </div>
 
+                        {/* Row 2 - Jumlah Mati, Jumlah Dijual, Jumlah Saat Ini */}
+
                         {/* Jumlah Mati */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -524,7 +527,7 @@ const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) =>
                         </div>
 
                         {/* Jumlah Saat Ini */}
-                        <div className="sm:col-span-2 lg:col-span-1">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Jumlah Saat Ini
                             </label>

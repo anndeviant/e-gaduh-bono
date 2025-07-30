@@ -336,17 +336,17 @@ const updateCascadingReports = async (
 
       // Hitung ulang jumlah saat ini berdasarkan jumlah awal yang baru
       const jumlahLahir = report.jumlahLahir || 0;
-      const jumlahMati = report.jumlahKematian || 0;
-      const jumlahDijual = report.jumlahTerjual || 0;
+      const jumlahKematian = report.jumlahKematian || 0;
+      const jumlahTerjual = report.jumlahTerjual || 0;
 
       const newJumlahSaatIni =
-        updatedJumlahAwal + jumlahLahir - jumlahMati - jumlahDijual;
+        updatedJumlahAwal + jumlahLahir - jumlahKematian - jumlahTerjual;
 
       const cascadeUpdateData = {
         jumlahTernakAwal: updatedJumlahAwal,
         jumlahTernakSaatIni: Math.max(0, newJumlahSaatIni), // Pastikan tidak negatif
         updatedAt: new Date().toISOString(),
-        cascadedFrom: `Laporan ke-${fromReportNumber + 1}`, // Tracking untuk audit
+        cascadedFrom: `Laporan ke-${fromReportNumber}`, // Tracking untuk audit
         cascadedAt: new Date().toISOString(),
       };
 

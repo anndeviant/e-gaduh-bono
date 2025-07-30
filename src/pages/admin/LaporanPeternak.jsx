@@ -10,7 +10,7 @@ import AllLaporanTable from '../../components/admin/AllLaporanTable';
 import LaporanForm from '../../components/admin/LaporanForm';
 import CommonDeleteModal from '../../components/common/CommonDeleteModal';
 import CascadeUpdateModal from '../../components/common/CascadeUpdateModal';
-import { Plus, ArrowLeft, User, Eye } from 'lucide-react';
+import { Plus, ArrowLeft, User, Eye, Download, FileText } from 'lucide-react';
 import { getAllPeternak } from '../../services/peternakService';
 import {
     getAllLaporan,
@@ -23,12 +23,11 @@ import {
 } from '../../services/laporanService';
 import useNotification from '../../hooks/useNotification';
 import Notification from '../../components/common/Notification';
+import { exportToPDF, exportToExcel } from '../../utils/exportUtils';
 
 const LaporanPeternak = () => {
     const navigate = useNavigate();
     const [peternakData, setPeternakData] = useState([]);
-    // eslint-disable-next-line no-unused-vars
-    const [laporanData, setLaporanData] = useState([]); // untuk detail view per-peternak (filtered data)
     const [allLaporanData, setAllLaporanData] = useState([]); // untuk calculation & AllLaporanTable (semua data)
     const [loading, setLoading] = useState(true);
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState(''); // untuk dropdown filter
@@ -92,15 +91,11 @@ const LaporanPeternak = () => {
 
                 // Jika filter peternak dipilih, ambil laporan dari firebase
                 if (selectedPeternakFilter) {
-                    const laporanList = await getLaporanByPeternak(selectedPeternakFilter);
-                    setLaporanData(laporanList);
+                    await getLaporanByPeternak(selectedPeternakFilter);
 
                     // Show success notification untuk laporan yang difilter
-                    showInfo('Data Dimuat', `Total: ${laporanList.length} laporan`);
+                    showInfo('Data Dimuat', `Laporan dimuat untuk peternak yang dipilih`);
                 } else {
-                    // Jika tidak ada filter, kosongkan laporanData
-                    setLaporanData([]);
-
                     // Show success notification untuk semua laporan
                     showInfo('Data Dimuat', `Total: ${allLaporanList.length} laporan`);
                 }
@@ -320,10 +315,6 @@ const LaporanPeternak = () => {
                 );
             }
 
-            // Refresh data laporan untuk peternak terpilih
-            const laporanList = await getLaporanByPeternak(selectedPeternakId);
-            setLaporanData(laporanList);
-
             // Refresh data keseluruhan untuk tabel AllLaporan
             const allLaporan = await getAllLaporan();
             setAllLaporanData(allLaporan);
@@ -385,9 +376,6 @@ const LaporanPeternak = () => {
             const result = await deleteLaporan(deletingLaporan.id);
 
             // Refresh data laporan untuk peternak terpilih
-            const laporanList = await getLaporanByPeternak(selectedPeternakId);
-            setLaporanData(laporanList);
-
             // Refresh data keseluruhan untuk tabel AllLaporan
             const allLaporan = await getAllLaporan();
             setAllLaporanData(allLaporan);
@@ -451,6 +439,43 @@ const LaporanPeternak = () => {
         }
     };
 
+    // Export handlers
+    const handleExportPDF = () => {
+        try {
+            const selectedPeternak = getPeternakById(selectedPeternakId);
+            const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
+
+            if (!selectedPeternak) {
+                showError('Gagal Export', 'Data peternak tidak ditemukan');
+                return;
+            }
+
+            exportToPDF(selectedPeternak, laporanPeternak);
+            showSuccess('Export Berhasil!', 'File PDF telah berhasil diunduh');
+        } catch (error) {
+            console.error('Error exporting PDF:', error);
+            showError('Gagal Export PDF', `Gagal mengexport PDF: ${error.message}`);
+        }
+    };
+
+    const handleExportExcel = () => {
+        try {
+            const selectedPeternak = getPeternakById(selectedPeternakId);
+            const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
+
+            if (!selectedPeternak) {
+                showError('Gagal Export', 'Data peternak tidak ditemukan');
+                return;
+            }
+
+            exportToExcel(selectedPeternak, laporanPeternak);
+            showSuccess('Export Berhasil!', 'File Excel telah berhasil diunduh');
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+            showError('Gagal Export Excel', `Gagal mengexport Excel: ${error.message}`);
+        }
+    };
+
     if (loading) {
         return (
             <div className="h-screen w-full flex overflow-hidden bg-gray-100">
@@ -491,21 +516,23 @@ const LaporanPeternak = () => {
                             <>
                                 {/* Header */}
                                 <div className="mb-6 sm:mb-8">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                                        <div>
+                                    <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex-1">
                                             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Laporan Monitoring Peternak</h1>
-                                            <p className="text-gray-600 mt-2">
+                                            <p className="text-gray-600 mt-2 text-sm sm:text-base">
                                                 {showAllLaporan
                                                     ? 'Tampilkan semua laporan dari seluruh peternak'
                                                     : 'Pilih peternak untuk melihat dan mengelola laporan mereka'
                                                 }
                                             </p>
                                         </div>
-                                        <div className="mt-4 sm:mt-0 flex gap-3">
+
+                                        {/* Action Buttons - Mobile Friendly Layout */}
+                                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                                             <button
                                                 onClick={handleManualSync}
                                                 disabled={syncLoading}
-                                                className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                className="inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                                 title="Sinkronisasi jumlah laporan dengan data aktual"
                                             >
                                                 {syncLoading ? (
@@ -524,11 +551,12 @@ const LaporanPeternak = () => {
                                             </button>
                                             <button
                                                 onClick={handleToggleAllLaporan}
-                                                className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
+                                                className={`inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
                                                     ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
                                                     : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                                                     }`}
                                             >
+                                                <Eye className="h-4 w-4 mr-2" />
                                                 {showAllLaporan ? 'Lihat Per Peternak' : 'Lihat Semua Laporan'}
                                             </button>
                                         </div>
@@ -539,7 +567,7 @@ const LaporanPeternak = () => {
                                     // Tampilan Semua Laporan
                                     <>
                                         <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
-                                            <div className="text-sm text-gray-500 mb-4">
+                                            <div className="text-sm text-gray-500 mb-1">
                                                 Menampilkan <span className="font-medium">{allLaporanData.length}</span> laporan dari seluruh peternak
                                             </div>
                                         </div>
@@ -594,8 +622,6 @@ const LaporanPeternak = () => {
                                                     </thead>
                                                     <tbody className="bg-white divide-y divide-gray-200">
                                                         {filteredPeternak.map((peternak) => {
-                                                            const latestLaporan = getLatestLaporan(peternak.id);
-
                                                             return (
                                                                 <tr
                                                                     key={peternak.id}
@@ -687,7 +713,6 @@ const LaporanPeternak = () => {
                                 {(() => {
                                     const selectedPeternak = getPeternakById(selectedPeternakId);
                                     const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
-                                    const latestLaporan = getLatestLaporan(selectedPeternakId);
 
                                     return (
                                         <>
@@ -712,45 +737,51 @@ const LaporanPeternak = () => {
 
                                             {/* Filters and Actions */}
                                             <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
-                                                {/* Header Filter Laporan dan Laporan Terakhir */}
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6 mb-2 lg:mb-3 items-center">
-                                                    <div>
-                                                        <h3 className="text-lg font-medium text-gray-900">Filter Laporan</h3>
-                                                    </div>
-                                                    <div className="lg:text-right">
-                                                        <div className="inline-block bg-gray-100 rounded-lg px-3 py-2">
-                                                            {(() => {
-                                                                const totalLaporan = getTotalLaporanByPeternak(selectedPeternakId);
-                                                                const latestLaporan = getLatestLaporan(selectedPeternakId);
+                                                {/* Header Filter Laporan dan Laporan Terakhir - Mobile Friendly */}
+                                                <div className="space-y-4 mb-4">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                        <div>
+                                                            <h3 className="text-lg font-medium text-gray-900">Filter Laporan</h3>
+                                                        </div>
+                                                        <div className="w-full sm:w-auto">
+                                                            <div className="bg-gray-100 rounded-lg px-3 py-2 w-full sm:w-auto">
+                                                                {(() => {
+                                                                    const totalLaporan = getTotalLaporanByPeternak(selectedPeternakId);
+                                                                    const latestLaporan = getLatestLaporan(selectedPeternakId);
 
-                                                                if (totalLaporan > 0) {
+                                                                    if (totalLaporan > 0) {
+                                                                        return (
+                                                                            <div className="text-sm text-gray-700 text-center sm:text-left">
+                                                                                <div className="flex flex-col sm:flex-row sm:items-center">
+                                                                                    <span className="font-medium">Laporan Terakhir: </span>
+                                                                                    <div className="mt-1 sm:mt-0 sm:ml-1">
+                                                                                        <span className="font-medium text-gray-900">
+                                                                                            {getLaporanLabel(totalLaporan)}
+                                                                                        </span>
+                                                                                        <span className="mx-1 hidden sm:inline">•</span>
+                                                                                        <span className="block sm:inline mt-1 sm:mt-0">
+                                                                                            {latestLaporan ?
+                                                                                                new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
+                                                                                                    day: 'numeric',
+                                                                                                    month: 'long',
+                                                                                                    year: 'numeric'
+                                                                                                }) : '-'
+                                                                                            }
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
                                                                     return (
-                                                                        <div className="text-sm text-gray-700">
+                                                                        <div className="text-sm text-gray-500 text-center sm:text-left">
                                                                             <span className="font-medium">Laporan Terakhir: </span>
-                                                                            <span className="font-medium text-gray-900">
-                                                                                {getLaporanLabel(totalLaporan)}
-                                                                            </span>
-                                                                            <span className="mx-1">•</span>
-                                                                            <span>
-                                                                                {latestLaporan ?
-                                                                                    new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
-                                                                                        day: 'numeric',
-                                                                                        month: 'long',
-                                                                                        year: 'numeric'
-                                                                                    }) : '-'
-                                                                                }
-                                                                            </span>
+                                                                            <span>Belum ada laporan</span>
                                                                         </div>
                                                                     );
-                                                                }
-
-                                                                return (
-                                                                    <div className="text-sm text-gray-500">
-                                                                        <span className="font-medium">Laporan Terakhir: </span>
-                                                                        <span>Belum ada laporan</span>
-                                                                    </div>
-                                                                );
-                                                            })()}
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -775,34 +806,61 @@ const LaporanPeternak = () => {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                                    <div className="text-sm text-gray-500">
-                                                        Menampilkan <span className="font-medium">{laporanPeternak.length}</span> laporan
-                                                        {selectedLaporan && ` untuk ${getLaporanLabel(selectedLaporan)}`}
-                                                    </div>
-                                                    {selectedPeternak?.statusSiklus === 'Selesai' ? (
-                                                        <div className="flex flex-col items-center sm:items-end gap-2">
+                                                {/* Layout Responsive: Stack di Mobile, 2 Kolom di Desktop */}
+                                                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 sm:gap-6 mb-4">
+                                                    {/* Kolom Kiri - Export */}
+                                                    <div>
+                                                        <div className="text-sm font-medium text-gray-700 mb-2">Export</div>
+                                                        <div className="flex flex-col sm:flex-row gap-2">
                                                             <button
-                                                                disabled
-                                                                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed w-full sm:w-auto justify-center"
-                                                                title="Tidak dapat menambah laporan karena status peternak sudah selesai"
+                                                                onClick={handleExportPDF}
+                                                                className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors justify-center sm:justify-start"
+                                                                title="Export data ke PDF"
+                                                            >
+                                                                <FileText className="h-4 w-4 mr-2" />
+                                                                PDF
+                                                            </button>
+                                                            <button
+                                                                onClick={handleExportExcel}
+                                                                className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors justify-center sm:justify-start"
+                                                                title="Export data ke Excel"
+                                                            >
+                                                                <Download className="h-4 w-4 mr-2" />
+                                                                Excel
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Kolom Kanan - Info & Action */}
+                                                    <div className="text-center sm:text-right">
+                                                        <div className="text-sm text-gray-500 mb-2">
+                                                            Menampilkan <span className="font-medium">{laporanPeternak.length}</span> laporan
+                                                            {selectedLaporan && ` untuk ${getLaporanLabel(selectedLaporan)}`}
+                                                        </div>
+                                                        {selectedPeternak?.statusSiklus === 'Selesai' ? (
+                                                            <div className="flex flex-col items-center sm:items-end gap-2">
+                                                                <button
+                                                                    disabled
+                                                                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed w-full sm:w-auto justify-center"
+                                                                    title="Tidak dapat menambah laporan karena status peternak sudah selesai"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-2" />
+                                                                    Tambah Laporan
+                                                                </button>
+                                                                <div className="text-xs text-orange-600 font-medium text-center sm:text-right">
+                                                                    Status: Selesai - Tidak dapat menambah laporan baru
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={handleAddLaporan}
+                                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
                                                             >
                                                                 <Plus className="h-4 w-4 mr-2" />
                                                                 Tambah Laporan
                                                             </button>
-                                                            <div className="text-xs text-orange-600 font-medium">
-                                                                Status: Selesai - Tidak dapat menambah laporan baru
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            onClick={handleAddLaporan}
-                                                            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
-                                                        >
-                                                            <Plus className="h-4 w-4 mr-2" />
-                                                            Tambah Laporan
-                                                        </button>
-                                                    )}
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 

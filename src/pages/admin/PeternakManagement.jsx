@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/admin/Sidebar';
 import Navbar from '../../components/admin/Navbar';
@@ -214,8 +214,8 @@ const PeternakManagement = () => {
                                                 {filteredPeternak.map((p) => {
                                                     const isExpanded = expandedRows[p.id];
                                                     return (
-                                                        <>
-                                                            <tr key={p.id} onClick={() => toggleRowExpansion(p.id)} className="cursor-pointer hover:bg-gray-50">
+                                                        <React.Fragment key={p.id}>
+                                                            <tr onClick={() => toggleRowExpansion(p.id)} className="cursor-pointer hover:bg-gray-50">
                                                                 <td className="px-4 sm:px-6 py-4 whitespace-nowrap">
                                                                     <div className="flex items-center">
                                                                         <div className="flex-shrink-0 h-10 w-10">
@@ -306,7 +306,7 @@ const PeternakManagement = () => {
                                                                     </td>
                                                                 </tr>
                                                             )}
-                                                        </>
+                                                        </React.Fragment>
                                                     );
                                                 })}
                                             </tbody>

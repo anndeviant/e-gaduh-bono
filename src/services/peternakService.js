@@ -179,30 +179,28 @@ export const decrementJumlahLaporan = async (peternakId) => {
 };
 
 export const syncJumlahLaporan = async (peternakId, actualJumlahLaporan) => {
-  await updateJumlahLaporan(peternakId, actualJumlahLaporan);
+  const peternakRef = doc(db, COLLECTION_PETERNAK, peternakId);
+  const peternakDoc = await getDoc(peternakRef);
+
+  if (!peternakDoc.exists()) {
+    console.warn(`Peternak dengan ID ${peternakId} tidak ditemukan.`);
+    return;
+  }
+
+  const peternakData = peternakDoc.data();
+  const updatePayload = { jumlahLaporan: actualJumlahLaporan };
 
   // Jika sudah mencapai 8 laporan, update status menjadi "Selesai"
-  if (actualJumlahLaporan >= 8) {
-    try {
-      const peternakDoc = await getDoc(
-        doc(db, COLLECTION_PETERNAK, peternakId)
-      );
-      if (peternakDoc.exists()) {
-        const peternakData = peternakDoc.data();
-        if (peternakData.statusSiklus !== "Selesai") {
-          await updatePeternak(peternakId, {
-            statusSiklus: "Selesai",
-            tanggalSelesai: new Date().toISOString().split("T")[0],
-          });
-          console.log(
-            `Status peternak ${peternakId} diubah menjadi Selesai (8 laporan tercapai)`
-          );
-        }
-      }
-    } catch (error) {
-      console.error("Error updating status peternak saat sync:", error);
-    }
+  if (actualJumlahLaporan >= 8 && peternakData.statusSiklus !== "Selesai") {
+    updatePayload.statusSiklus = "Selesai";
+    updatePayload.tanggalSelesai =
+      peternakData.tanggalSelesai || new Date().toISOString().split("T")[0];
+    console.log(
+      `Status peternak ${peternakId} diubah menjadi Selesai (8 laporan tercapai)`
+    );
   }
+
+  await updateDoc(peternakRef, updatePayload);
 };
 
 // Fungsi untuk mengecek dan memperbarui status semua peternak yang sudah selesai
