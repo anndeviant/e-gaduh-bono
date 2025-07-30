@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Calendar, MapPin, Phone, Users as UsersIcon, Heart, User, AlertCircle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ChevronDown, ChevronUp, Calendar, MapPin, Phone, Users as UsersIcon, Heart, User, CheckCircle } from 'lucide-react';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import PeternakSidebar from '../../components/peternak/PeternakSidebar';
 import PeternakNavbar from '../../components/peternak/PeternakNavbar';
+import Notification from '../../components/common/Notification';
+import Footer from '../../components/common/Footer';
+import { getAllPeternak } from '../../services/peternakService';
+import { getAllLaporan } from '../../services/laporanService';
+import useNotification from '../../hooks/useNotification';
 
 const PeternakTransparencyPage = () => {
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState('');
@@ -11,119 +16,33 @@ const PeternakTransparencyPage = () => {
     const [loading, setLoading] = useState(true);
     const [expandedRows, setExpandedRows] = useState({});
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { notification, showError, hideNotification } = useNotification();
+
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+
+            // Load data peternak dan laporan dari Firebase
+            const [peternakResponse, laporanResponse] = await Promise.all([
+                getAllPeternak(),
+                getAllLaporan()
+            ]);
+
+            // Tampilkan semua peternak (tidak filter berdasarkan status)
+            setPeternakData(peternakResponse);
+            setLaporanData(laporanResponse);
+
+        } catch (error) {
+            console.error('Error loading transparency data:', error);
+            showError('Gagal memuat data transparansi', error.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [showError]);
 
     useEffect(() => {
-        // Sample data berdasarkan struktur database yang diusulkan
-        setTimeout(() => {
-            setPeternakData([
-                {
-                    id: 'aB1cDefG2hIjkL3mN4o',
-                    namaLengkap: 'Ahmad Subarjo',
-                    alamat: 'Dusun Ngaliyan RT 01/RW 02, Desa Bono',
-                    nomorTelepon: '081234567890',
-                    urlFotoPeternak: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-                    statusKinerja: 'hijau',
-                    tanggalDaftar: '2024-01-15',
-                    programAktif: true,
-                    jumlahTernakSaatIni: 8,
-                    targetPengembalian: 6
-                },
-                {
-                    id: 'cD2eF3gH4iJkL5mN6o',
-                    namaLengkap: 'Siti Aminah',
-                    alamat: 'Dusun Krajan RT 02/RW 01, Desa Bono',
-                    nomorTelepon: '081234567891',
-                    urlFotoPeternak: 'https://images.unsplash.com/photo-1494790108755-2616c78e5eff?w=150',
-                    statusKinerja: 'kuning',
-                    tanggalDaftar: '2024-02-20',
-                    programAktif: true,
-                    jumlahTernakSaatIni: 4,
-                    targetPengembalian: 4
-                },
-                {
-                    id: 'eF3gH4iJ5kL6mN7o8p',
-                    namaLengkap: 'Bambang Wijaya',
-                    alamat: 'Dusun Sawah RT 03/RW 02, Desa Bono',
-                    nomorTelepon: '081234567892',
-                    urlFotoPeternak: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
-                    statusKinerja: 'hijau',
-                    tanggalDaftar: '2024-03-10',
-                    programAktif: true,
-                    jumlahTernakSaatIni: 6,
-                    targetPengembalian: 5
-                }
-            ]);
-
-            // Data Laporan Per Pertemuan Rutin (sinkron dengan database admin)
-            setLaporanData([
-                {
-                    id: 'laporan001',
-                    peternakId: 'aB1cDefG2hIjkL3mN4o',
-                    tanggalPertemuan: '2024-03-31',
-                    periode: 'Triwulan I 2024',
-                    triwulan: 1,
-                    tahun: 2024,
-                    jumlahTernakAwal: 5,
-                    jumlahLahir: 3,
-                    jumlahMati: 0,
-                    jumlahTerjual: 0,
-                    jumlahAkhir: 8,
-                    kendala: 'Domba sering batuk dan terlihat lemas',
-                    solusi: 'Berikan obat batuk khusus ternak, pisahkan dari domba lain, dan konsultasi dengan petugas kesehatan hewan terdekat',
-                    keterangan: 'Masalah ini sering terjadi saat pergantian musim. Perlu penanganan cepat untuk mencegah penyebaran.'
-                },
-                {
-                    id: 'laporan002',
-                    peternakId: 'aB1cDefG2hIjkL3mN4o',
-                    tanggalPertemuan: '2024-06-30',
-                    periode: 'Triwulan II 2024',
-                    triwulan: 2,
-                    tahun: 2024,
-                    jumlahTernakAwal: 8,
-                    jumlahLahir: 2,
-                    jumlahMati: 1,
-                    jumlahTerjual: 1,
-                    jumlahAkhir: 8,
-                    kendala: 'Harga jual domba rendah, sulit mencari pembeli',
-                    solusi: 'Bergabung dengan kelompok peternak untuk penjualan kolektif, manfaatkan media sosial untuk promosi, atau jual langsung ke pasar tradisional',
-                    keterangan: 'Strategi pemasaran yang tepat bisa meningkatkan keuntungan peternak secara signifikan.'
-                },
-                {
-                    id: 'laporan003',
-                    peternakId: 'cD2eF3gH4iJkL5mN6o',
-                    tanggalPertemuan: '2024-03-31',
-                    periode: 'Triwulan I 2024',
-                    triwulan: 1,
-                    tahun: 2024,
-                    jumlahTernakAwal: 3,
-                    jumlahLahir: 2,
-                    jumlahMati: 1,
-                    jumlahTerjual: 0,
-                    jumlahAkhir: 4,
-                    kendala: 'Sempat mengalami masalah pakan di musim kemarau',
-                    solusi: 'Diberikan bantuan pakan tambahan dan penyuluhan manajemen pakan kering',
-                    keterangan: 'Alternatif pakan saat musim kering sangat penting untuk menjaga kondisi ternak tetap sehat.'
-                },
-                {
-                    id: 'laporan004',
-                    peternakId: 'eF3gH4iJ5kL6mN7o8p',
-                    tanggalPertemuan: '2024-03-31',
-                    periode: 'Triwulan I 2024',
-                    triwulan: 1,
-                    tahun: 2024,
-                    jumlahTernakAwal: 4,
-                    jumlahLahir: 3,
-                    jumlahMati: 1,
-                    jumlahTerjual: 0,
-                    jumlahAkhir: 6,
-                    kendala: 'Kandang bocor saat hujan, domba basah kuyup',
-                    solusi: 'Perbaiki atap kandang dengan seng atau genting, pastikan ada saluran air yang baik di sekitar kandang',
-                    keterangan: 'Kandang yang kering dan bersih sangat penting untuk kesehatan ternak, terutama saat musim hujan.'
-                }
-            ]);
-            setLoading(false);
-        }, 1000);
-    }, []);
+        loadData();
+    }, [loadData]);
 
     const toggleRowExpansion = (peternakId) => {
         setExpandedRows(prev => ({
@@ -145,12 +64,18 @@ const PeternakTransparencyPage = () => {
     // }, [mobileMenuOpen]);
 
     const getPeternakLaporan = (peternakId) => {
-        return laporanData.filter(laporan => laporan.peternakId === peternakId);
+        return laporanData.filter(laporan => laporan.idPeternak === peternakId)
+            .sort((a, b) => a.reportNumber - b.reportNumber);
     };
 
     const getLatestLaporan = (peternakId) => {
         const laporan = getPeternakLaporan(peternakId);
         return laporan.length > 0 ? laporan[laporan.length - 1] : null;
+    };
+
+    const getCurrentLivestockCount = (peternakId) => {
+        const latestLaporan = getLatestLaporan(peternakId);
+        return latestLaporan ? latestLaporan.jumlahTernakSaatIni : 0;
     };
 
     // Filter data berdasarkan searchable dropdown
@@ -176,8 +101,9 @@ const PeternakTransparencyPage = () => {
 
     const totalStats = {
         totalPeternak: peternakData.length,
-        totalTernak: peternakData.reduce((sum, peternak) => sum + peternak.jumlahTernakSaatIni, 0),
-        peternakAktif: peternakData.filter(peternak => peternak.programAktif).length
+        totalTernak: peternakData.reduce((sum, peternak) => sum + getCurrentLivestockCount(peternak.id), 0),
+        peternakAktif: peternakData.filter(peternak => peternak.statusSiklus === 'Aktif' || peternak.statusSiklus === 'Mulai').length,
+        peternakSelesai: peternakData.filter(peternak => peternak.statusSiklus === 'Selesai').length
     };
 
     if (loading) {
@@ -235,7 +161,7 @@ const PeternakTransparencyPage = () => {
 
                     {/* Statistics */}
                     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-                        <div className="grid grid-cols-3 gap-2 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
                             <div className="bg-white rounded-lg shadow p-2 sm:p-4 lg:p-6">
                                 <div className="flex items-center justify-center sm:justify-start mb-1 sm:mb-2">
                                     <div className="p-1 sm:p-1.5 lg:p-2 bg-green-100 rounded-lg">
@@ -261,7 +187,16 @@ const PeternakTransparencyPage = () => {
                                     </div>
                                     <p className="text-sm sm:text-lg lg:text-2xl font-semibold text-gray-900 ml-2 sm:ml-3 lg:ml-4">{totalStats.peternakAktif}</p>
                                 </div>
-                                <p className="text-xs sm:text-xs lg:text-sm text-gray-600 text-center sm:text-left">Program Aktif</p>
+                                <p className="text-xs sm:text-xs lg:text-sm text-gray-600 text-center sm:text-left">Program Progress</p>
+                            </div>
+                            <div className="bg-white rounded-lg shadow p-2 sm:p-4 lg:p-6">
+                                <div className="flex items-center justify-center sm:justify-start mb-1 sm:mb-2">
+                                    <div className="p-1 sm:p-1.5 lg:p-2 bg-green-100 rounded-lg">
+                                        <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 lg:h-6 lg:w-6 text-green-600" />
+                                    </div>
+                                    <p className="text-sm sm:text-lg lg:text-2xl font-semibold text-gray-900 ml-2 sm:ml-3 lg:ml-4">{totalStats.peternakSelesai}</p>
+                                </div>
+                                <p className="text-xs sm:text-xs lg:text-sm text-gray-600 text-center sm:text-left">Program Selesai</p>
                             </div>
                         </div>
 
@@ -296,7 +231,7 @@ const PeternakTransparencyPage = () => {
                                                 Peternak
                                             </th>
                                             <th className="px-4 sm:px-6 py-3 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                Jumlah Laporan
+                                                Status Gaduh
                                             </th>
                                             <th className="px-4 sm:px-6 py-3 sm:py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                 Pertemuan Terakhir
@@ -322,7 +257,7 @@ const PeternakTransparencyPage = () => {
                                                         <td className="px-4 sm:px-6 py-4 sm:py-4 whitespace-nowrap">
                                                             <div className="flex items-center">
                                                                 <img
-                                                                    src={peternak.urlFotoPeternak}
+                                                                    src={peternak.urlFotoPeternak || `https://ui-avatars.com/api/?name=${encodeURIComponent(peternak.namaLengkap)}&background=f3f4f6&color=374151&size=40`}
                                                                     alt={peternak.namaLengkap}
                                                                     className="h-9 w-9 sm:h-10 sm:w-10 rounded-full object-cover mr-3 sm:mr-3 flex-shrink-0"
                                                                     onError={(e) => {
@@ -343,17 +278,30 @@ const PeternakTransparencyPage = () => {
                                                         </td>
                                                         <td className="px-4 sm:px-6 py-4 sm:py-4 text-center">
                                                             <div className="text-xs text-gray-500 font-bold">
-                                                                {getPeternakLaporan(peternak.id).length} Laporan
+                                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${peternak.statusSiklus === 'Selesai' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
+                                                                    }`}>
+                                                                    {peternak.statusSiklus === 'Selesai' ? 'Selesai' : 'Progress'}
+                                                                </span>
                                                             </div>
                                                         </td>
                                                         <td className="px-4 sm:px-6 py-4 sm:py-4 text-center">
                                                             {latestLaporan ? (
                                                                 <div className="text-xs sm:text-sm">
                                                                     <div className="font-medium text-gray-900">
-                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.triwulan]}
+                                                                        Laporan ke-{latestLaporan.reportNumber}
                                                                     </div>
                                                                     <div className="text-gray-500 text-xs">
-                                                                        {new Date(latestLaporan.tanggalPertemuan).toLocaleDateString('id-ID')}
+                                                                        {(() => {
+                                                                            try {
+                                                                                const date = new Date(latestLaporan.tanggalLaporan);
+                                                                                if (isNaN(date.getTime())) {
+                                                                                    return '-';
+                                                                                }
+                                                                                return date.toLocaleDateString('id-ID');
+                                                                            } catch (error) {
+                                                                                return '-';
+                                                                            }
+                                                                        })()}
                                                                     </div>
                                                                 </div>
                                                             ) : (
@@ -435,7 +383,7 @@ const PeternakTransparencyPage = () => {
                                                                                             <td className="px-4 py-3 text-sm text-gray-700">
                                                                                                 <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                                                                                                     <span className="font-medium text-green-600">
-                                                                                                        {peternak.jumlahTernakSaatIni} ekor (saat ini)
+                                                                                                        {getCurrentLivestockCount(peternak.id)} ekor (saat ini)
                                                                                                     </span>
                                                                                                     <span className="text-blue-600 text-xs sm:text-sm">
                                                                                                         Target pengembalian: {peternak.targetPengembalian} ekor
@@ -451,8 +399,8 @@ const PeternakTransparencyPage = () => {
                                                                                                 </div>
                                                                                             </td>
                                                                                             <td className="px-4 py-3 text-sm text-gray-700">
-                                                                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${peternak.programAktif ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                                                                    Program {peternak.programAktif ? 'Aktif' : 'Tidak Aktif'}
+                                                                                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${peternak.statusSiklus === 'Selesai' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                                                                    Program {peternak.statusSiklus === 'Selesai' ? 'Selesai' : 'Progress'}
                                                                                                 </span>
                                                                                             </td>
                                                                                         </tr>
@@ -497,13 +445,23 @@ const PeternakTransparencyPage = () => {
                                                                                                         <React.Fragment key={laporan.id}>
                                                                                                             <tr className="hover:bg-gray-50 transition-colors">
                                                                                                                 <td className="px-4 py-4 text-sm">
-                                                                                                                    <div className="font-medium text-gray-900 mb-1">{laporan.periode}</div>
+                                                                                                                    <div className="font-medium text-gray-900 mb-1">{laporan.displayPeriod}</div>
                                                                                                                     <div className="text-xs text-gray-500">
-                                                                                                                        {new Date(laporan.tanggalPertemuan).toLocaleDateString('id-ID', {
-                                                                                                                            day: '2-digit',
-                                                                                                                            month: 'short',
-                                                                                                                            year: 'numeric'
-                                                                                                                        })}
+                                                                                                                        {(() => {
+                                                                                                                            try {
+                                                                                                                                const date = new Date(laporan.tanggalLaporan);
+                                                                                                                                if (isNaN(date.getTime())) {
+                                                                                                                                    return '-';
+                                                                                                                                }
+                                                                                                                                return date.toLocaleDateString('id-ID', {
+                                                                                                                                    day: '2-digit',
+                                                                                                                                    month: 'short',
+                                                                                                                                    year: 'numeric'
+                                                                                                                                });
+                                                                                                                            } catch (error) {
+                                                                                                                                return '-';
+                                                                                                                            }
+                                                                                                                        })()}
                                                                                                                     </div>
                                                                                                                 </td>
                                                                                                                 <td className="px-4 py-4 text-center text-sm font-medium text-gray-900">
@@ -513,59 +471,25 @@ const PeternakTransparencyPage = () => {
                                                                                                                 </td>
                                                                                                                 <td className="px-4 py-4 text-center">
                                                                                                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 min-w-[40px] justify-center">
-                                                                                                                        +{laporan.jumlahLahir}
+                                                                                                                        +{laporan.jumlahLahir || 0}
                                                                                                                     </span>
                                                                                                                 </td>
                                                                                                                 <td className="px-4 py-4 text-center">
                                                                                                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 min-w-[40px] justify-center">
-                                                                                                                        -{laporan.jumlahMati}
+                                                                                                                        -{laporan.jumlahKematian || 0}
                                                                                                                     </span>
                                                                                                                 </td>
                                                                                                                 <td className="px-4 py-4 text-center">
                                                                                                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 min-w-[40px] justify-center">
-                                                                                                                        -{laporan.jumlahTerjual}
+                                                                                                                        -{laporan.jumlahTerjual || 0}
                                                                                                                     </span>
                                                                                                                 </td>
                                                                                                                 <td className="px-4 py-4 text-center text-sm font-medium text-gray-900">
                                                                                                                     <div className="inline-flex items-center justify-center w-8 h-8 bg-blue-50 text-blue-700 rounded-full font-semibold">
-                                                                                                                        {laporan.jumlahAkhir}
+                                                                                                                        {laporan.jumlahTernakSaatIni}
                                                                                                                     </div>
                                                                                                                 </td>
                                                                                                             </tr>
-
-                                                                                                            {/* Row untuk Kendala-Solusi dan Keterangan */}
-                                                                                                            {(laporan.kendala || laporan.solusi || laporan.keterangan) && (
-                                                                                                                <tr className="bg-gray-50">
-                                                                                                                    <td colSpan="6" className="px-4 py-4">
-                                                                                                                        <div className="text-xs sm:text-sm space-y-2">
-                                                                                                                            {laporan.kendala && (
-                                                                                                                                <div className="flex items-start">
-                                                                                                                                    <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
-                                                                                                                                    <div className="flex-1">
-                                                                                                                                        <span className="font-medium text-yellow-700">Kendala: </span>
-                                                                                                                                        <span className="text-yellow-600 text-justify leading-relaxed">{laporan.kendala}</span>
-                                                                                                                                    </div>
-                                                                                                                                </div>
-                                                                                                                            )}
-                                                                                                                            {laporan.solusi && (
-                                                                                                                                <div className="flex items-start">
-                                                                                                                                    <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 mr-2 mt-0.5 flex-shrink-0" />
-                                                                                                                                    <div className="flex-1">
-                                                                                                                                        <span className="font-medium text-green-700">Solusi: </span>
-                                                                                                                                        <span className="text-green-600 text-justify leading-relaxed">{laporan.solusi}</span>
-                                                                                                                                    </div>
-                                                                                                                                </div>
-                                                                                                                            )}
-                                                                                                                            {laporan.keterangan && (
-                                                                                                                                <div className="bg-gray-100 p-2 sm:p-3 rounded border-l-4 border-gray-400">
-                                                                                                                                    <span className="font-medium text-gray-900">Keterangan: </span>
-                                                                                                                                    <span className="text-gray-800 text-justify leading-relaxed">{laporan.keterangan}</span>
-                                                                                                                                </div>
-                                                                                                                            )}
-                                                                                                                        </div>
-                                                                                                                    </td>
-                                                                                                                </tr>
-                                                                                                            )}
                                                                                                         </React.Fragment>
                                                                                                     ))}
                                                                                                 </tbody>
@@ -608,6 +532,21 @@ const PeternakTransparencyPage = () => {
                     </section>
                 </main>
             </div>
+
+            {/* Footer */}
+            <Footer />
+
+            {/* Notification */}
+            {notification.isVisible && (
+                <Notification
+                    type={notification.type}
+                    title={notification.title}
+                    message={notification.message}
+                    onClose={hideNotification}
+                    autoClose={notification.autoClose}
+                    duration={notification.duration}
+                />
+            )}
         </div>
     );
 };

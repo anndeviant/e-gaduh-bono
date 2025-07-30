@@ -7,38 +7,39 @@ import { useLogoutModal } from '../../hooks/useLogoutModal';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import LaporanTable from '../../components/admin/LaporanTable';
 import AllLaporanTable from '../../components/admin/AllLaporanTable';
-import LaporanTriwulanForm from '../../components/admin/LaporanTriwulanForm';
-import DeleteConfirmModal from '../../components/admin/DeleteConfirmModal';
-import ProgramProgressIndicator from '../../components/admin/ProgramProgressIndicator';
-import StatusKinerjaManager from '../../components/admin/StatusKinerjaManager';
-import { Plus, ArrowLeft, User, MapPin, Phone, Eye } from 'lucide-react';
+import LaporanForm from '../../components/admin/LaporanForm';
+import CommonDeleteModal from '../../components/common/CommonDeleteModal';
+import CascadeUpdateModal from '../../components/common/CascadeUpdateModal';
+import { Plus, ArrowLeft, User, Eye, Download, FileText } from 'lucide-react';
 import { getAllPeternak } from '../../services/peternakService';
 import {
     getAllLaporan,
     getLaporanByPeternak,
     createLaporan,
     updateLaporan,
-    deleteLaporan
+    deleteLaporan,
+    performAutoSync,
+    forceSync
 } from '../../services/laporanService';
-import { useLaporanNotification } from '../../hooks/useLaporanNotification';
-import NotificationToast from '../../components/common/NotificationToast';
+import useNotification from '../../hooks/useNotification';
+import Notification from '../../components/common/Notification';
+import { exportToPDF, exportToExcel } from '../../utils/exportUtils';
 
 const LaporanPeternak = () => {
     const navigate = useNavigate();
     const [peternakData, setPeternakData] = useState([]);
-    // eslint-disable-next-line no-unused-vars
-    const [laporanData, setLaporanData] = useState([]); // untuk detail view per-peternak (filtered data)
     const [allLaporanData, setAllLaporanData] = useState([]); // untuk calculation & AllLaporanTable (semua data)
     const [loading, setLoading] = useState(true);
     const [selectedPeternakFilter, setSelectedPeternakFilter] = useState(''); // untuk dropdown filter
     const [selectedPeternakId, setSelectedPeternakId] = useState(null);
-    const [selectedTriwulan, setSelectedTriwulan] = useState('');
-    const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear());
+    const [selectedLaporan, setSelectedLaporan] = useState('');
     const [showAllLaporan, setShowAllLaporan] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [viewMode, setViewMode] = useState('peternak'); // 'peternak', 'laporan', 'add', 'edit'
     const [editingLaporan, setEditingLaporan] = useState(null);
     const [deletingLaporan, setDeletingLaporan] = useState(null);
+    const [showCascadeModal, setShowCascadeModal] = useState(false);
+    const [cascadeInfo, setCascadeInfo] = useState(null);
 
     // Logout modal hook
     const {
@@ -49,17 +50,16 @@ const LaporanPeternak = () => {
         confirmLogout
     } = useLogoutModal();
     const [deleteLoading, setDeleteLoading] = useState(false);
+    const [syncLoading, setSyncLoading] = useState(false);
 
     // Notification hook
     const {
         notification,
-        clearNotification,
-        notifyLoadSuccess,
-        notifyLoadError,
-        notifyDeleteSuccess,
-        notifyDeleteError,
-        notifyActionConfirm
-    } = useLaporanNotification();
+        showSuccess,
+        showError,
+        showInfo,
+        hideNotification
+    } = useNotification();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -72,27 +72,37 @@ const LaporanPeternak = () => {
                 // Selalu ambil semua laporan terlebih dahulu untuk menghitung total per peternak
                 const allLaporanList = await getAllLaporan();
                 setAllLaporanData(allLaporanList);
-                console.log('All laporan data:', allLaporanList);
+
+                // Auto-sync jumlahLaporan di background untuk memastikan data konsisten
+                // Menggunakan sistem yang lebih reliable berdasarkan interval waktu
+                try {
+                    const syncResult = await performAutoSync();
+                    if (syncResult.performed) {
+                        console.log('Auto-sync completed successfully');
+                        // Refresh data peternak setelah sync
+                        const updatedPeternakList = await getAllPeternak();
+                        setPeternakData(updatedPeternakList);
+                        showInfo('Sinkronisasi Otomatis', 'Data peternak telah disinkronkan');
+                    }
+                } catch (syncError) {
+                    console.error('Auto-sync failed, but continuing with normal flow:', syncError);
+                    // Tidak menampilkan error ke user karena ini adalah background process
+                }
 
                 // Jika filter peternak dipilih, ambil laporan dari firebase
                 if (selectedPeternakFilter) {
-                    const laporanList = await getLaporanByPeternak(selectedPeternakFilter);
-                    setLaporanData(laporanList);
-                    console.log('Laporan data for selected peternak:', laporanList);
+                    await getLaporanByPeternak(selectedPeternakFilter);
 
                     // Show success notification untuk laporan yang difilter
-                    notifyLoadSuccess(laporanList.length);
+                    showInfo('Data Dimuat', `Laporan dimuat untuk peternak yang dipilih`);
                 } else {
-                    // Jika tidak ada filter, kosongkan laporanData
-                    setLaporanData([]);
-
                     // Show success notification untuk semua laporan
-                    notifyLoadSuccess(allLaporanList.length);
+                    showInfo('Data Dimuat', `Total: ${allLaporanList.length} laporan`);
                 }
 
             } catch (error) {
                 console.error('Error fetching data:', error);
-                notifyLoadError(error.message);
+                showError('Error Memuat Data', 'Gagal memuat data laporan');
             }
             setLoading(false);
         };
@@ -123,32 +133,20 @@ const LaporanPeternak = () => {
     };
 
     const getTotalLaporanByPeternak = (peternakId) => {
+        // Ambil data peternak untuk mendapatkan jumlahLaporan dari database
+        const peternakData = getPeternakById(peternakId);
+
+        // Jika field jumlahLaporan ada di database, gunakan itu
+        if (peternakData && typeof peternakData.jumlahLaporan === 'number') {
+            return peternakData.jumlahLaporan;
+        }
+
+        // Fallback: hitung dari laporan yang ada (untuk data lama yang belum punya field jumlahLaporan)
         return getPeternakLaporan(peternakId).length;
     };
 
-    const getTriwulanLabel = (triwulan) => {
-        const labels = {
-            1: 'Triwulan I (Jan-Mar)',
-            2: 'Triwulan II (Apr-Jun)',
-            3: 'Triwulan III (Jul-Sep)',
-            4: 'Triwulan IV (Okt-Des)'
-        };
-        return labels[triwulan] || `Triwulan ${triwulan}`;
-    };
-
-    const getStatusBadge = (status) => {
-        const statusConfig = {
-            'Baru': 'bg-gray-100 text-gray-800',
-            'Progress': 'bg-blue-100 text-blue-800',
-            'Bagus': 'bg-green-100 text-green-800',
-            'Biasa': 'bg-yellow-100 text-yellow-800',
-            'Kurang': 'bg-red-100 text-red-800'
-        };
-        return (
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig[status] || statusConfig['Baru']}`}>
-                {status}
-            </span>
-        );
+    const getLaporanLabel = (laporanNumber) => {
+        return `Laporan ke-${laporanNumber}`;
     };
 
     // Filter data
@@ -160,7 +158,7 @@ const LaporanPeternak = () => {
     const peternakOptions = peternakData.map(peternak => ({
         value: peternak.id,
         label: peternak.namaLengkap,
-        subtitle: `${peternak.statusKinerja} • ${getTotalLaporanByPeternak(peternak.id)} laporan`,
+        subtitle: `${peternak.nomorTelepon || 'No. HP tidak tersedia'} • ${getTotalLaporanByPeternak(peternak.id)} laporan`,
     }));
 
     const defaultPeternakOption = {
@@ -169,30 +167,33 @@ const LaporanPeternak = () => {
         subtitle: `${peternakData.length} peternak total`
     };
 
-    // Options for Triwulan filter
-    const triwulanOptions = [
-        { value: '', label: 'Semua Triwulan', subtitle: 'Tampilkan semua periode' },
-        { value: '1', label: 'Triwulan I', subtitle: 'Januari - Maret' },
-        { value: '2', label: 'Triwulan II', subtitle: 'April - Juni' },
-        { value: '3', label: 'Triwulan III', subtitle: 'Juli - September' },
-        { value: '4', label: 'Triwulan IV', subtitle: 'Oktober - Desember' }
+    // Options for Laporan filter
+    const laporanOptions = [
+        { value: '', label: 'Semua Laporan', subtitle: 'Tampilkan semua laporan' },
+        { value: '1', label: 'Laporan ke-1', subtitle: 'Laporan pertama' },
+        { value: '2', label: 'Laporan ke-2', subtitle: 'Laporan kedua' },
+        { value: '3', label: 'Laporan ke-3', subtitle: 'Laporan ketiga' },
+        { value: '4', label: 'Laporan ke-4', subtitle: 'Laporan keempat' },
+        { value: '5', label: 'Laporan ke-5', subtitle: 'Laporan kelima' },
+        { value: '6', label: 'Laporan ke-6', subtitle: 'Laporan keenam' },
+        { value: '7', label: 'Laporan ke-7', subtitle: 'Laporan ketujuh' },
+        { value: '8', label: 'Laporan ke-8', subtitle: 'Laporan kedelapan' }
     ];
 
-    // Options for Tahun filter
-    const tahunOptions = [
-        { value: '', label: 'Semua Tahun', subtitle: 'Tampilkan semua tahun' },
-        { value: 2024, label: '2024', subtitle: 'Tahun 2024' },
-        { value: 2025, label: '2025', subtitle: 'Tahun 2025' }
-    ];
+    // Options for Tahun filter - REMOVED karena sudah tidak menggunakan field year
+    // const tahunOptions = [
+    //     { value: '', label: 'Semua Tahun', subtitle: 'Tampilkan semua tahun' },
+    //     { value: 2024, label: '2024', subtitle: 'Tahun 2024' },
+    //     { value: 2025, label: '2025', subtitle: 'Tahun 2025' }
+    // ];
 
     const getFilteredLaporanByPeternak = (peternakId) => {
         // Gunakan allLaporanData untuk filter, bukan laporanData
         const peternakLaporan = allLaporanData.filter(laporan => laporan.idPeternak === peternakId);
 
         return peternakLaporan.filter(laporan => {
-            const matchTriwulan = selectedTriwulan === '' || laporan.quarter?.toString() === selectedTriwulan;
-            const matchTahun = selectedTahun === '' || laporan.year === selectedTahun;
-            return matchTriwulan && matchTahun;
+            const matchLaporan = selectedLaporan === '' || laporan.reportNumber?.toString() === selectedLaporan;
+            return matchLaporan;
         });
     };
 
@@ -201,8 +202,7 @@ const LaporanPeternak = () => {
         if (!showAllLaporan) {
             // Ketika beralih ke mode semua laporan, reset filter
             setSelectedPeternakFilter('');
-            setSelectedTriwulan('');
-            setSelectedTahun('');
+            setSelectedLaporan('');
         }
     };
 
@@ -215,8 +215,7 @@ const LaporanPeternak = () => {
     const handleBackToPeternak = () => {
         setSelectedPeternakId(null);
         setViewMode('peternak');
-        setSelectedTriwulan('');
-        setSelectedTahun('');
+        setSelectedLaporan('');
         setEditingLaporan(null);
     };
 
@@ -226,11 +225,31 @@ const LaporanPeternak = () => {
     };
 
     const handleAddLaporan = () => {
+        // Validasi: Cek apakah status peternak sudah selesai
+        const selectedPeternak = getPeternakById(selectedPeternakId);
+        if (selectedPeternak?.statusSiklus === 'Selesai') {
+            showError(
+                'Tidak Dapat Menambah Laporan',
+                'Peternak dengan status "Selesai" tidak dapat menambahkan laporan baru.'
+            );
+            return;
+        }
+
         setEditingLaporan(null);
         setViewMode('add');
     };
 
     const handleEditLaporan = (laporan) => {
+        // Validasi: Cek apakah status peternak sudah selesai
+        const selectedPeternak = getPeternakById(selectedPeternakId);
+        if (selectedPeternak?.statusSiklus === 'Selesai') {
+            showError(
+                'Tidak Dapat Mengedit Laporan',
+                'Peternak dengan status "Selesai" tidak dapat mengedit laporan.'
+            );
+            return;
+        }
+
         setEditingLaporan(laporan);
         setViewMode('edit');
     };
@@ -249,20 +268,52 @@ const LaporanPeternak = () => {
                 idPeternak: selectedPeternakId
             };
 
+            let reportNumber = 1;
             let result;
+
             if (viewMode === 'edit' && editingLaporan) {
                 // Update laporan yang ada
+                reportNumber = editingLaporan.reportNumber;
+
+                // Cek apakah jumlah ternak saat ini berubah untuk notifikasi cascading
+                const oldJumlahSaatIni = editingLaporan.jumlahTernakSaatIni || editingLaporan.jumlah_saat_ini;
+                const newJumlahSaatIni = dataToSave.jumlahTernakSaatIni;
+
                 result = await updateLaporan(editingLaporan.id, dataToSave);
-                console.log('Laporan berhasil diupdate:', result);
+
+                // Cek cascading update result
+                if (result.cascadeUpdate && result.cascadeUpdate.updatedCount > 0) {
+                    setCascadeInfo({
+                        ...result.cascadeUpdate,
+                        reportNumber: reportNumber,
+                        action: 'update'
+                    });
+                    setShowCascadeModal(true);
+
+                    showSuccess(
+                        'Laporan Berhasil Diperbarui!',
+                        `Laporan ke-${reportNumber} diperbarui. ${result.cascadeUpdate.updatedCount} laporan berikutnya disesuaikan otomatis.`
+                    );
+                } else if (oldJumlahSaatIni !== newJumlahSaatIni) {
+                    showSuccess(
+                        'Laporan Berhasil Diperbarui!',
+                        `Laporan ke-${reportNumber} diperbarui. Tidak ada laporan berikutnya yang perlu disesuaikan.`
+                    );
+                } else {
+                    showSuccess(
+                        'Laporan Berhasil Diperbarui!',
+                        `Laporan ke-${reportNumber} berhasil diperbarui.`
+                    );
+                }
             } else {
                 // Buat laporan baru
-                result = await createLaporan(dataToSave);
-                console.log('Laporan berhasil dibuat:', result);
+                reportNumber = dataToSave.reportNumber || 1;
+                await createLaporan(dataToSave);
+                showSuccess(
+                    'Laporan Berhasil Dibuat!',
+                    `Laporan ke-${reportNumber} berhasil dibuat.`
+                );
             }
-
-            // Refresh data laporan untuk peternak terpilih
-            const laporanList = await getLaporanByPeternak(selectedPeternakId);
-            setLaporanData(laporanList);
 
             // Refresh data keseluruhan untuk tabel AllLaporan
             const allLaporan = await getAllLaporan();
@@ -272,10 +323,21 @@ const LaporanPeternak = () => {
             setViewMode('laporan');
             setEditingLaporan(null);
 
-            console.log('Redirect berhasil ke halaman laporan');
         } catch (error) {
             console.error('Error saving laporan:', error);
-            alert(`Gagal menyimpan laporan: ${error.message}`);
+
+            // Notifikasi error yang lebih informatif
+            if (error.message.includes('cascading')) {
+                showError(
+                    'Error Sinkronisasi Data',
+                    'Laporan berhasil disimpan, namun terjadi masalah saat memperbarui laporan terkait. Data mungkin perlu disinkronkan ulang.'
+                );
+            } else {
+                showError(
+                    'Gagal Menyimpan Laporan',
+                    error.message || 'Terjadi kesalahan saat menyimpan laporan'
+                );
+            }
         }
     };
 
@@ -286,16 +348,17 @@ const LaporanPeternak = () => {
     };
 
     const handleShowDeleteConfirm = (laporan) => {
-        setDeletingLaporan(laporan);
-    };
+        // Validasi: Cek apakah status peternak sudah selesai
+        const selectedPeternak = getPeternakById(selectedPeternakId);
+        if (selectedPeternak?.statusSiklus === 'Selesai') {
+            showError(
+                'Tidak Dapat Menghapus Laporan',
+                'Peternak dengan status "Selesai" tidak dapat menghapus laporan.'
+            );
+            return;
+        }
 
-    const handleStatusKinerjaUpdate = (newStatus) => {
-        // Update status kinerja di state lokal
-        setPeternakData(prev => prev.map(p =>
-            p.id === selectedPeternakId
-                ? { ...p, statusKinerja: newStatus, programAktif: false, tanggalSelesai: new Date().toISOString() }
-                : p
-        ));
+        setDeletingLaporan(laporan);
     };
 
     const handleDeleteLaporan = async () => {
@@ -306,32 +369,110 @@ const LaporanPeternak = () => {
         try {
             // Show processing notification
             const peternakName = getPeternakById(deletingLaporan.idPeternak)?.namaLengkap || 'Peternak';
-            notifyActionConfirm('Menghapus laporan', peternakName);
+            const reportNumber = deletingLaporan.reportNumber;
 
-            await deleteLaporan(deletingLaporan.id);
+            showInfo('Memproses...', `Menghapus laporan untuk ${peternakName}`);
+
+            const result = await deleteLaporan(deletingLaporan.id);
 
             // Refresh data laporan untuk peternak terpilih
-            const laporanList = await getLaporanByPeternak(selectedPeternakId);
-            setLaporanData(laporanList);
-
             // Refresh data keseluruhan untuk tabel AllLaporan
             const allLaporan = await getAllLaporan();
             setAllLaporanData(allLaporan);
 
-            // Show success notification
-            notifyDeleteSuccess(
-                peternakName,
-                deletingLaporan.quarter || deletingLaporan.quarterNumber || deletingLaporan.triwulan,
-                deletingLaporan.year || deletingLaporan.quarterInfo?.year || deletingLaporan.tahun
-            );
+            // Cek cascading update result
+            if (result.cascadeUpdate && result.cascadeUpdate.updatedCount > 0) {
+                setCascadeInfo({
+                    ...result.cascadeUpdate,
+                    reportNumber: reportNumber,
+                    action: 'delete'
+                });
+                setShowCascadeModal(true);
+
+                showSuccess(
+                    'Laporan Berhasil Dihapus!',
+                    `Laporan ke-${reportNumber} untuk ${peternakName} telah dihapus. ${result.cascadeUpdate.updatedCount} laporan berikutnya disesuaikan otomatis.`
+                );
+            } else {
+                // Show success notification
+                showSuccess(
+                    'Laporan Berhasil Dihapus!',
+                    `Laporan ke-${reportNumber} untuk ${peternakName} telah dihapus.`
+                );
+            }
 
             setDeletingLaporan(null);
-            console.log('Laporan berhasil dihapus dan data direfresh');
         } catch (error) {
             console.error('Error deleting laporan:', error);
-            notifyDeleteError(error.message);
+
+            if (error.message.includes('cascading')) {
+                showError(
+                    'Error Sinkronisasi Data',
+                    'Laporan berhasil dihapus, namun terjadi masalah saat memperbarui laporan terkait. Data mungkin perlu disinkronkan ulang.'
+                );
+            } else {
+                showError('Gagal Menghapus Laporan', 'Terjadi kesalahan saat menghapus laporan.');
+            }
         } finally {
             setDeleteLoading(false);
+        }
+    };
+
+    // Manual sync function for admin
+    const handleManualSync = async () => {
+        setSyncLoading(true);
+        try {
+            showInfo('Memproses...', 'Melakukan sinkronisasi data jumlah laporan');
+
+            await forceSync();
+
+            // Refresh data peternak setelah sync
+            const updatedPeternakList = await getAllPeternak();
+            setPeternakData(updatedPeternakList);
+
+            showSuccess('Sinkronisasi Berhasil!', 'Data peternak telah disinkronkan dengan laporan.');
+        } catch (error) {
+            console.error('Error during manual sync:', error);
+            showError('Gagal Sinkronisasi', `Gagal melakukan sinkronisasi: ${error.message}`);
+        } finally {
+            setSyncLoading(false);
+        }
+    };
+
+    // Export handlers
+    const handleExportPDF = () => {
+        try {
+            const selectedPeternak = getPeternakById(selectedPeternakId);
+            const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
+
+            if (!selectedPeternak) {
+                showError('Gagal Export', 'Data peternak tidak ditemukan');
+                return;
+            }
+
+            exportToPDF(selectedPeternak, laporanPeternak);
+            showSuccess('Export Berhasil!', 'File PDF telah berhasil diunduh');
+        } catch (error) {
+            console.error('Error exporting PDF:', error);
+            showError('Gagal Export PDF', `Gagal mengexport PDF: ${error.message}`);
+        }
+    };
+
+    const handleExportExcel = () => {
+        try {
+            const selectedPeternak = getPeternakById(selectedPeternakId);
+            const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
+
+            if (!selectedPeternak) {
+                showError('Gagal Export', 'Data peternak tidak ditemukan');
+                return;
+            }
+
+            exportToExcel(selectedPeternak, laporanPeternak);
+            showSuccess('Export Berhasil!', 'File Excel telah berhasil diunduh');
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+            showError('Gagal Export Excel', `Gagal mengexport Excel: ${error.message}`);
         }
     };
 
@@ -375,24 +516,47 @@ const LaporanPeternak = () => {
                             <>
                                 {/* Header */}
                                 <div className="mb-6 sm:mb-8">
-                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                                        <div>
+                                    <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex-1">
                                             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Laporan Monitoring Peternak</h1>
-                                            <p className="text-gray-600 mt-2">
+                                            <p className="text-gray-600 mt-2 text-sm sm:text-base">
                                                 {showAllLaporan
                                                     ? 'Tampilkan semua laporan dari seluruh peternak'
-                                                    : 'Pilih peternak untuk melihat dan mengelola laporan triwulan mereka'
+                                                    : 'Pilih peternak untuk melihat dan mengelola laporan mereka'
                                                 }
                                             </p>
                                         </div>
-                                        <div className="mt-4 sm:mt-0">
+
+                                        {/* Action Buttons - Mobile Friendly Layout */}
+                                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                                            <button
+                                                onClick={handleManualSync}
+                                                disabled={syncLoading}
+                                                className="inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                title="Sinkronisasi jumlah laporan dengan data aktual"
+                                            >
+                                                {syncLoading ? (
+                                                    <>
+                                                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-300 border-t-blue-600 mr-2"></div>
+                                                        Sync...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                        </svg>
+                                                        Sync Data
+                                                    </>
+                                                )}
+                                            </button>
                                             <button
                                                 onClick={handleToggleAllLaporan}
-                                                className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
+                                                className={`inline-flex items-center justify-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${showAllLaporan
                                                     ? 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100'
                                                     : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                                                     }`}
                                             >
+                                                <Eye className="h-4 w-4 mr-2" />
                                                 {showAllLaporan ? 'Lihat Per Peternak' : 'Lihat Semua Laporan'}
                                             </button>
                                         </div>
@@ -403,7 +567,7 @@ const LaporanPeternak = () => {
                                     // Tampilan Semua Laporan
                                     <>
                                         <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
-                                            <div className="text-sm text-gray-500 mb-4">
+                                            <div className="text-sm text-gray-500 mb-1">
                                                 Menampilkan <span className="font-medium">{allLaporanData.length}</span> laporan dari seluruh peternak
                                             </div>
                                         </div>
@@ -446,7 +610,7 @@ const LaporanPeternak = () => {
                                                                 Peternak
                                                             </th>
                                                             <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                                Total Laporan
+                                                                Status
                                                             </th>
                                                             <th className="px-4 sm:px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                                 Laporan Terakhir
@@ -458,9 +622,6 @@ const LaporanPeternak = () => {
                                                     </thead>
                                                     <tbody className="bg-white divide-y divide-gray-200">
                                                         {filteredPeternak.map((peternak) => {
-                                                            const latestLaporan = getLatestLaporan(peternak.id);
-                                                            const totalLaporanPeternak = getTotalLaporanByPeternak(peternak.id);
-
                                                             return (
                                                                 <tr
                                                                     key={peternak.id}
@@ -475,30 +636,50 @@ const LaporanPeternak = () => {
                                                                                 <div className="text-sm font-medium text-gray-900">
                                                                                     {peternak.namaLengkap}
                                                                                 </div>
-                                                                                <div className="mt-1">
-                                                                                    {getStatusBadge(peternak.statusKinerja)}
+                                                                                <div className="text-xs text-gray-500 mt-1">
+                                                                                    {peternak.nomorTelepon || 'No. HP tidak tersedia'}
                                                                                 </div>
                                                                             </div>
                                                                         </div>
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                            {totalLaporanPeternak} laporan
-                                                                        </span>
+                                                                        <div className="flex items-center justify-center">
+                                                                            {peternak.statusSiklus === 'Selesai' ? (
+                                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                                    Selesai
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                                    Berjalan
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
-                                                                        {latestLaporan ? (
-                                                                            <div className="text-sm">
-                                                                                <div className="font-medium text-gray-900">
-                                                                                    Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan]}
-                                                                                </div>
-                                                                                <div className="text-gray-500 text-xs">
-                                                                                    {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID')}
-                                                                                </div>
-                                                                            </div>
-                                                                        ) : (
-                                                                            <span className="text-gray-500 text-sm">-</span>
-                                                                        )}
+                                                                        {(() => {
+                                                                            const totalLaporan = getTotalLaporanByPeternak(peternak.id);
+                                                                            const latestLaporan = getLatestLaporan(peternak.id);
+
+                                                                            // Jika ada field jumlahLaporan di database dan > 0, gunakan itu
+                                                                            if (totalLaporan > 0) {
+                                                                                return (
+                                                                                    <div className="text-sm">
+                                                                                        <div className="font-medium text-gray-900">
+                                                                                            {getLaporanLabel(totalLaporan)}
+                                                                                        </div>
+                                                                                        <div className="text-gray-500 text-xs">
+                                                                                            {latestLaporan ?
+                                                                                                new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID') :
+                                                                                                '-'
+                                                                                            }
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+
+                                                                            // Fallback: jika tidak ada data laporan sama sekali
+                                                                            return <span className="text-gray-500 text-sm">-</span>;
+                                                                        })()}
                                                                     </td>
                                                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-center">
                                                                         <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 mx-auto" />
@@ -532,7 +713,6 @@ const LaporanPeternak = () => {
                                 {(() => {
                                     const selectedPeternak = getPeternakById(selectedPeternakId);
                                     const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
-                                    const latestLaporan = getLatestLaporan(selectedPeternakId);
 
                                     return (
                                         <>
@@ -550,139 +730,136 @@ const LaporanPeternak = () => {
                                                         Laporan {selectedPeternak?.namaLengkap}
                                                     </h1>
                                                     <p className="text-gray-600 mt-2">
-                                                        Kelola laporan triwulan untuk peternak ini
+                                                        Kelola laporan untuk peternak ini
                                                     </p>
                                                 </div>
                                             </div>
 
                                             {/* Filters and Actions */}
                                             <div className="bg-white rounded-lg shadow mb-6 p-4 sm:p-6">
-                                                {/* Header Filter Laporan dan Laporan Terakhir */}
-                                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6 mb-2 lg:mb-3 items-center">
-                                                    <div>
-                                                        <h3 className="text-lg font-medium text-gray-900">Filter Laporan</h3>
-                                                    </div>
-                                                    <div className="lg:text-right">
-                                                        <div className="inline-block bg-gray-100 rounded-lg px-3 py-2">
-                                                            {latestLaporan ? (
-                                                                <div className="text-sm text-gray-700">
-                                                                    <span className="font-medium">Laporan Terakhir: </span>
-                                                                    <span className="font-medium text-gray-900">
-                                                                        Triwulan {['', 'I', 'II', 'III', 'IV'][latestLaporan.quarter || latestLaporan.quarterNumber || latestLaporan.triwulan]} {latestLaporan.year || latestLaporan.quarterInfo?.year || latestLaporan.tahun}
-                                                                    </span>
-                                                                    <span className="mx-1">•</span>
-                                                                    <span>
-                                                                        {new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
-                                                                            day: 'numeric',
-                                                                            month: 'long',
-                                                                            year: 'numeric'
-                                                                        })}
-                                                                    </span>
-                                                                </div>
-                                                            ) : (
-                                                                <div className="text-sm text-gray-500">
-                                                                    <span className="font-medium">Laporan Terakhir: </span>
-                                                                    <span>Belum ada laporan</span>
-                                                                </div>
-                                                            )}
+                                                {/* Header Filter Laporan dan Laporan Terakhir - Mobile Friendly */}
+                                                <div className="space-y-4 mb-4">
+                                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                                        <div>
+                                                            <h3 className="text-lg font-medium text-gray-900">Filter Laporan</h3>
+                                                        </div>
+                                                        <div className="w-full sm:w-auto">
+                                                            <div className="bg-gray-100 rounded-lg px-3 py-2 w-full sm:w-auto">
+                                                                {(() => {
+                                                                    const totalLaporan = getTotalLaporanByPeternak(selectedPeternakId);
+                                                                    const latestLaporan = getLatestLaporan(selectedPeternakId);
+
+                                                                    if (totalLaporan > 0) {
+                                                                        return (
+                                                                            <div className="text-sm text-gray-700 text-center sm:text-left">
+                                                                                <div className="flex flex-col sm:flex-row sm:items-center">
+                                                                                    <span className="font-medium">Laporan Terakhir: </span>
+                                                                                    <div className="mt-1 sm:mt-0 sm:ml-1">
+                                                                                        <span className="font-medium text-gray-900">
+                                                                                            {getLaporanLabel(totalLaporan)}
+                                                                                        </span>
+                                                                                        <span className="mx-1 hidden sm:inline">•</span>
+                                                                                        <span className="block sm:inline mt-1 sm:mt-0">
+                                                                                            {latestLaporan ?
+                                                                                                new Date(latestLaporan.tanggalLaporan).toLocaleDateString('id-ID', {
+                                                                                                    day: 'numeric',
+                                                                                                    month: 'long',
+                                                                                                    year: 'numeric'
+                                                                                                }) : '-'
+                                                                                            }
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    return (
+                                                                        <div className="text-sm text-gray-500 text-center sm:text-left">
+                                                                            <span className="font-medium">Laporan Terakhir: </span>
+                                                                            <span>Belum ada laporan</span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                {/* Filter Triwulan dan Tahun */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                                    {/* Filter Triwulan */}
+                                                {/* Filter Laporan */}
+                                                <div className="mb-4">
                                                     <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                            Filter Triwulan
+                                                            Filter Laporan
                                                         </label>
                                                         <SearchableDropdown
-                                                            options={triwulanOptions}
-                                                            value={selectedTriwulan}
-                                                            onChange={setSelectedTriwulan}
-                                                            placeholder="Pilih triwulan..."
-                                                            searchPlaceholder="Cari triwulan..."
+                                                            options={laporanOptions}
+                                                            value={selectedLaporan}
+                                                            onChange={setSelectedLaporan}
+                                                            placeholder="Pilih laporan..."
+                                                            searchPlaceholder="Cari laporan..."
                                                             displayKey="label"
                                                             valueKey="value"
                                                             searchKeys={['label', 'subtitle']}
-                                                            noResultsText="Triwulan tidak ditemukan"
+                                                            noResultsText="Laporan tidak ditemukan"
                                                         />
                                                     </div>
+                                                </div>
 
-                                                    {/* Filter Tahun */}
+                                                {/* Layout Responsive: Stack di Mobile, 2 Kolom di Desktop */}
+                                                <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 sm:gap-6 mb-4">
+                                                    {/* Kolom Kiri - Export */}
                                                     <div>
-                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                            Filter Tahun
-                                                        </label>
-                                                        <SearchableDropdown
-                                                            options={tahunOptions}
-                                                            value={selectedTahun}
-                                                            onChange={setSelectedTahun}
-                                                            placeholder="Pilih tahun..."
-                                                            searchPlaceholder="Cari tahun..."
-                                                            displayKey="label"
-                                                            valueKey="value"
-                                                            searchKeys={['label']}
-                                                            noResultsText="Tahun tidak ditemukan"
-                                                        />
+                                                        <div className="text-sm font-medium text-gray-700 mb-2">Export</div>
+                                                        <div className="flex flex-col sm:flex-row gap-2">
+                                                            <button
+                                                                onClick={handleExportPDF}
+                                                                className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors justify-center sm:justify-start"
+                                                                title="Export data ke PDF"
+                                                            >
+                                                                <FileText className="h-4 w-4 mr-2" />
+                                                                PDF
+                                                            </button>
+                                                            <button
+                                                                onClick={handleExportExcel}
+                                                                className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors justify-center sm:justify-start"
+                                                                title="Export data ke Excel"
+                                                            >
+                                                                <Download className="h-4 w-4 mr-2" />
+                                                                Excel
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </div>
 
-                                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                                                    <div className="text-sm text-gray-500">
-                                                        Menampilkan <span className="font-medium">{laporanPeternak.length}</span> laporan
-                                                        {selectedTriwulan && ` untuk Triwulan ${selectedTriwulan}`}
-                                                        {` tahun ${selectedTahun}`}
-                                                    </div>
-                                                    <button
-                                                        onClick={handleAddLaporan}
-                                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
-                                                    >
-                                                        <Plus className="h-4 w-4 mr-2" />
-                                                        Tambah Laporan
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Progress Indicator */}
-                                            <ProgramProgressIndicator
-                                                peternakData={selectedPeternak}
-                                                laporanData={laporanPeternak}
-                                            />
-
-                                            {/* Status Kinerja Manager */}
-                                            <StatusKinerjaManager
-                                                peternakData={selectedPeternak}
-                                                laporanData={laporanPeternak}
-                                                onStatusUpdate={handleStatusKinerjaUpdate}
-                                            />
-
-                                            {/* Info Peternak - Subcard */}
-                                            <div className="bg-white rounded-lg shadow mb-6 p-5 sm:p-6">
-                                                <h3 className="text-lg font-medium text-gray-900 mb-5">Informasi Peternak</h3>
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                                    <div className="flex items-center">
-                                                        <User className="h-9 w-9 sm:h-8 sm:w-8 text-gray-400 bg-gray-100 rounded-full p-2 mr-4 sm:mr-3 flex-shrink-0" />
-                                                        <div>
-                                                            <div className="text-sm font-medium text-gray-900">
-                                                                {selectedPeternak?.namaLengkap}
+                                                    {/* Kolom Kanan - Info & Action */}
+                                                    <div className="text-center sm:text-right">
+                                                        <div className="text-sm text-gray-500 mb-2">
+                                                            Menampilkan <span className="font-medium">{laporanPeternak.length}</span> laporan
+                                                            {selectedLaporan && ` untuk ${getLaporanLabel(selectedLaporan)}`}
+                                                        </div>
+                                                        {selectedPeternak?.statusSiklus === 'Selesai' ? (
+                                                            <div className="flex flex-col items-center sm:items-end gap-2">
+                                                                <button
+                                                                    disabled
+                                                                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed w-full sm:w-auto justify-center"
+                                                                    title="Tidak dapat menambah laporan karena status peternak sudah selesai"
+                                                                >
+                                                                    <Plus className="h-4 w-4 mr-2" />
+                                                                    Tambah Laporan
+                                                                </button>
+                                                                <div className="text-xs text-orange-600 font-medium text-center sm:text-right">
+                                                                    Status: Selesai - Tidak dapat menambah laporan baru
+                                                                </div>
                                                             </div>
-                                                            <div className="text-sm text-gray-500">
-                                                                NIK: {selectedPeternak?.nik}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <MapPin className="h-4 w-4 text-gray-400 mr-3 sm:mr-2 flex-shrink-0" />
-                                                        <div className="text-sm text-gray-900">
-                                                            {selectedPeternak?.alamat}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center">
-                                                        <Phone className="h-4 w-4 text-gray-400 mr-3 sm:mr-2 flex-shrink-0" />
-                                                        <div className="text-sm text-gray-900">
-                                                            {selectedPeternak?.nomorTelepon}
-                                                        </div>
+                                                        ) : (
+                                                            <button
+                                                                onClick={handleAddLaporan}
+                                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 w-full sm:w-auto justify-center"
+                                                            >
+                                                                <Plus className="h-4 w-4 mr-2" />
+                                                                Tambah Laporan
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -692,6 +869,7 @@ const LaporanPeternak = () => {
                                                 laporan={laporanPeternak}
                                                 onEdit={handleEditLaporan}
                                                 onDelete={handleShowDeleteConfirm}
+                                                isReadOnly={selectedPeternak?.statusSiklus === 'Selesai'}
                                             />
                                         </>
                                     );
@@ -702,7 +880,6 @@ const LaporanPeternak = () => {
                             <>
                                 {(() => {
                                     const selectedPeternak = getPeternakById(selectedPeternakId);
-                                    const laporanPeternak = getFilteredLaporanByPeternak(selectedPeternakId);
                                     return (
                                         <>
                                             {/* Header dengan tombol back */}
@@ -720,7 +897,7 @@ const LaporanPeternak = () => {
                                                     </h1>
                                                     <p className="text-gray-600 mt-2">
                                                         {viewMode === 'edit'
-                                                            ? `Mengubah laporan ${getTriwulanLabel(editingLaporan?.triwulan)} ${editingLaporan?.tahun} untuk ${selectedPeternak?.namaLengkap}`
+                                                            ? `Mengubah ${getLaporanLabel(editingLaporan?.reportNumber)} untuk ${selectedPeternak?.namaLengkap}`
                                                             : `Buat laporan baru untuk ${selectedPeternak?.namaLengkap}`
                                                         }
                                                     </p>
@@ -729,11 +906,10 @@ const LaporanPeternak = () => {
 
                                             {/* Form */}
                                             {(viewMode === 'add' || viewMode === 'edit') && selectedPeternakId && (
-                                                <LaporanTriwulanForm
+                                                <LaporanForm
                                                     laporan={editingLaporan}
                                                     peternakId={selectedPeternakId}
                                                     peternakData={selectedPeternak}
-                                                    triwulan={laporanPeternak.length > 0 ? laporanPeternak.length : 0}
                                                     onSave={handleSaveLaporan}
                                                     onCancel={handleCancelForm}
                                                 />
@@ -748,16 +924,27 @@ const LaporanPeternak = () => {
             </div>
 
             {deletingLaporan && (
-                <DeleteConfirmModal
-                    admin={deletingLaporan}
+                <CommonDeleteModal
+                    item={deletingLaporan}
+                    type="item"
+                    title="Hapus Laporan"
+                    customMessage={`Apakah Anda yakin ingin menghapus ${getLaporanLabel(deletingLaporan.reportNumber)}? Tindakan ini tidak dapat diurungkan.`}
                     onConfirm={handleDeleteLaporan}
                     onCancel={() => setDeletingLaporan(null)}
                     loading={deleteLoading}
-                    title="Hapus Laporan"
-                    message={`Apakah Anda yakin ingin menghapus laporan Triwulan ${deletingLaporan.quarterNumber || deletingLaporan.triwulan} ${deletingLaporan.quarterInfo?.year || deletingLaporan.tahun}?`}
-                    confirmText="Hapus Laporan"
                 />
             )}
+
+            {/* Cascade Update Modal */}
+            <CascadeUpdateModal
+                isOpen={showCascadeModal}
+                onClose={() => {
+                    setShowCascadeModal(false);
+                    setCascadeInfo(null);
+                }}
+                cascadeInfo={cascadeInfo}
+                action={cascadeInfo?.action || 'update'}
+            />
 
             {/* Logout Modal */}
             <LogoutModal
@@ -767,12 +954,15 @@ const LaporanPeternak = () => {
                 userName={userToLogout?.fullName}
             />
 
-            {/* Notification Toast */}
-            <NotificationToast
-                notification={notification}
-                onClose={clearNotification}
-                position="top-right"
-                autoHideDuration={5000}
+            {/* Notification Component */}
+            <Notification
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                isVisible={notification.isVisible}
+                onClose={hideNotification}
+                autoClose={notification.autoClose}
+                duration={notification.duration}
             />
         </div>
     );

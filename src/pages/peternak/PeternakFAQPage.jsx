@@ -1,95 +1,88 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HelpCircle, User, Calendar } from 'lucide-react';
 import SearchableDropdown from '../../components/common/SearchableDropdown';
 import PeternakSidebar from '../../components/peternak/PeternakSidebar';
 import PeternakNavbar from '../../components/peternak/PeternakNavbar';
+import Notification from '../../components/common/Notification';
+import Footer from '../../components/common/Footer';
+import { getAllPeternak } from '../../services/peternakService';
+import { getAllLaporan } from '../../services/laporanService';
+import useNotification from '../../hooks/useNotification';
 
 const PeternakFAQPage = () => {
     const [faqData, setFaqData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedFaqFilter, setSelectedFaqFilter] = useState('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const { notification, showError, hideNotification } = useNotification();
+
+    const loadFaqData = useCallback(async () => {
+        try {
+            setLoading(true);
+
+            // Load data peternak dan laporan dari Firebase
+            const [peternakResponse, laporanResponse] = await Promise.all([
+                getAllPeternak(),
+                getAllLaporan()
+            ]);
+
+            // Filter laporan yang memiliki kendala, solusi, atau catatan
+            const laporanWithFaq = laporanResponse.filter(laporan =>
+                laporan.kendala || laporan.solusi || laporan.catatan
+            );
+
+            // Gabungkan data laporan dengan data peternak
+            const faqWithPeternakData = laporanWithFaq.map(laporan => {
+                const peternak = peternakResponse.find(p => p.id === laporan.idPeternak);
+                return {
+                    id: laporan.id,
+                    namaPeternak: peternak?.namaLengkap || 'Tidak Diketahui',
+                    tanggalLaporan: laporan.tanggalLaporan,
+                    periode: laporan.displayPeriod || `Laporan ke-${laporan.reportNumber}`,
+                    kendala: laporan.kendala || '',
+                    solusi: laporan.solusi || '',
+                    keterangan: laporan.catatan || '', // Menggunakan field "catatan"
+                    reportNumber: laporan.reportNumber || 0
+                };
+            });
+
+            // Sort berdasarkan tanggal laporan terbaru
+            faqWithPeternakData.sort((a, b) => {
+                const dateA = new Date(a.tanggalLaporan);
+                const dateB = new Date(b.tanggalLaporan);
+                return dateB - dateA;
+            });
+
+            setFaqData(faqWithPeternakData);
+
+        } catch (error) {
+            console.error('Error loading FAQ data:', error);
+            showError('Gagal memuat data FAQ', error.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [showError]);
 
     useEffect(() => {
-        // Sample FAQ data berdasarkan keterangan, kendala, dan solusi dari laporan
-        setTimeout(() => {
-            setFaqData([
-                {
-                    id: 1,
-                    namaPeternak: 'Ahmad Subarjo',
-                    tanggalLaporan: '31 Maret 2024',
-                    triwulan: 'Triwulan I 2024',
-                    kendala: 'Domba sering batuk dan terlihat lemas',
-                    solusi: 'Berikan obat batuk khusus ternak, pisahkan dari domba lain, dan konsultasi dengan petugas kesehatan hewan terdekat',
-                    keterangan: 'Masalah ini sering terjadi saat pergantian musim. Perlu penanganan cepat untuk mencegah penyebaran.'
-                },
-                {
-                    id: 2,
-                    namaPeternak: 'Siti Aminah',
-                    tanggalLaporan: '31 Maret 2024',
-                    triwulan: 'Triwulan I 2024',
-                    kendala: 'Sulit mendapatkan rumput segar saat musim kemarau',
-                    solusi: 'Gunakan jerami padi yang difermentasi, atau campurkan dengan konsentrat. Bisa juga membuat silase untuk cadangan pakan',
-                    keterangan: 'Alternatif pakan saat musim kering sangat penting untuk menjaga kondisi ternak tetap sehat.'
-                },
-                {
-                    id: 3,
-                    namaPeternak: 'Bambang Wijaya',
-                    tanggalLaporan: '31 Maret 2024',
-                    triwulan: 'Triwulan I 2024',
-                    kendala: 'Kandang bocor saat hujan, domba basah kuyup',
-                    solusi: 'Perbaiki atap kandang dengan seng atau genting, pastikan ada saluran air yang baik di sekitar kandang',
-                    keterangan: 'Kandang yang kering dan bersih sangat penting untuk kesehatan ternak, terutama saat musim hujan.'
-                },
-                {
-                    id: 4,
-                    namaPeternak: 'Budi Santoso',
-                    tanggalLaporan: '30 Juni 2024',
-                    triwulan: 'Triwulan II 2024',
-                    kendala: 'Domba betina tidak mau kawin atau sering gagal bunting',
-                    solusi: 'Periksa kondisi nutrisi domba, pastikan mendapat vitamin yang cukup. Konsultasi dengan petugas untuk program kawin suntik',
-                    keterangan: 'Masalah reproduksi bisa disebabkan kekurangan gizi atau stres. Perlu penanganan khusus dari ahli.'
-                },
-                {
-                    id: 5,
-                    namaPeternak: 'Ahmad Subarjo',
-                    tanggalLaporan: '30 Juni 2024',
-                    triwulan: 'Triwulan II 2024',
-                    kendala: 'Harga jual domba rendah, sulit mencari pembeli',
-                    solusi: 'Bergabung dengan kelompok peternak untuk penjualan kolektif, manfaatkan media sosial untuk promosi, atau jual langsung ke pasar tradisional',
-                    keterangan: 'Strategi pemasaran yang tepat bisa meningkatkan keuntungan peternak secara signifikan.'
-                },
-                {
-                    id: 6,
-                    namaPeternak: 'Siti Aminah',
-                    tanggalLaporan: '30 September 2024',
-                    triwulan: 'Triwulan III 2024',
-                    kendala: 'Bingung mengisi laporan bulanan ke pengelola program',
-                    solusi: 'Hubungi pendamping lapangan untuk panduan, gunakan format yang sudah disediakan, catat semua kegiatan harian',
-                    keterangan: 'Laporan yang lengkap dan tepat waktu membantu pengelola memberikan bantuan yang lebih baik.'
-                },
-                {
-                    id: 7,
-                    namaPeternak: 'Bambang Wijaya',
-                    tanggalLaporan: '30 September 2024',
-                    triwulan: 'Triwulan III 2024',
-                    kendala: 'Anak domba sering mati dalam minggu pertama',
-                    solusi: 'Pastikan induk mendapat nutrisi yang baik saat bunting, jaga kebersihan kandang, berikan colostrum yang cukup',
-                    keterangan: 'Kematian anak domba bisa dicegah dengan perawatan intensif pada minggu-minggu pertama kehidupan.'
-                },
-                {
-                    id: 8,
-                    namaPeternak: 'Budi Santoso',
-                    tanggalLaporan: '31 Desember 2024',
-                    triwulan: 'Triwulan IV 2024',
-                    kendala: 'Domba tidak mau makan konsentrat yang diberikan',
-                    solusi: 'Campurkan konsentrat dengan pakan favorit seperti rumput segar, berikan secara bertahap, pastikan konsentrat tidak basi',
-                    keterangan: 'Adaptasi pakan baru memerlukan waktu. Perlu kesabaran dan cara yang tepat agar ternak mau menerima.'
-                }
-            ]);
-            setLoading(false);
-        }, 1000);
-    }, []);
+        loadFaqData();
+    }, [loadFaqData]);
+
+    // Function untuk format tanggal yang aman
+    const formatTanggal = (tanggal) => {
+        try {
+            const date = new Date(tanggal);
+            if (isNaN(date.getTime())) {
+                return 'Tanggal tidak valid';
+            }
+            return date.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        } catch (error) {
+            return 'Tanggal tidak valid';
+        }
+    };
 
     // Filter data berdasarkan searchable dropdown
     const filteredFaq = selectedFaqFilter
@@ -99,8 +92,8 @@ const PeternakFAQPage = () => {
     // Prepare options for SearchableDropdown
     const faqOptions = faqData.map(faq => ({
         value: faq.id,
-        label: faq.kendala,
-        subtitle: `${faq.namaPeternak} • ${faq.triwulan} • ${faq.tanggalLaporan}`,
+        label: faq.kendala || 'Tidak ada kendala tercatat',
+        subtitle: `${faq.namaPeternak} • ${faq.periode} • ${formatTanggal(faq.tanggalLaporan)}`,
     }));
 
     const defaultFaqOption = {
@@ -211,41 +204,47 @@ const PeternakFAQPage = () => {
                                                 {/* Waktu Laporan */}
                                                 <div className="flex items-center text-sm text-gray-600">
                                                     <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                                                    <span className="font-medium">{faq.triwulan}</span>
+                                                    <span className="font-medium">{faq.periode}</span>
                                                     <span className="mx-2">•</span>
-                                                    <span>{faq.tanggalLaporan}</span>
+                                                    <span>{formatTanggal(faq.tanggalLaporan)}</span>
                                                 </div>
                                             </div>
 
-                                            {/* Kendala */}
-                                            <div className="mb-4">
-                                                <h3 className="text-sm font-medium text-red-600 mb-2">
-                                                    Kendala:
-                                                </h3>
-                                                <p className="text-gray-900 leading-relaxed">
-                                                    {faq.kendala}
-                                                </p>
-                                            </div>
+                                            {/* Kendala - hanya tampilkan jika ada */}
+                                            {faq.kendala && (
+                                                <div className="mb-4">
+                                                    <h3 className="text-sm font-medium text-red-600 mb-2">
+                                                        Kendala:
+                                                    </h3>
+                                                    <p className="text-gray-900 leading-relaxed">
+                                                        {faq.kendala}
+                                                    </p>
+                                                </div>
+                                            )}
 
-                                            {/* Solusi */}
-                                            <div className="mb-4">
-                                                <h3 className="text-sm font-medium text-green-600 mb-2">
-                                                    Solusi:
-                                                </h3>
-                                                <p className="text-gray-900 leading-relaxed">
-                                                    {faq.solusi}
-                                                </p>
-                                            </div>
+                                            {/* Solusi - hanya tampilkan jika ada */}
+                                            {faq.solusi && (
+                                                <div className="mb-4">
+                                                    <h3 className="text-sm font-medium text-green-600 mb-2">
+                                                        Solusi:
+                                                    </h3>
+                                                    <p className="text-gray-900 leading-relaxed">
+                                                        {faq.solusi}
+                                                    </p>
+                                                </div>
+                                            )}
 
-                                            {/* Keterangan */}
-                                            <div className="bg-blue-50 rounded-lg p-3">
-                                                <h3 className="text-sm font-medium text-blue-600 mb-1">
-                                                    Keterangan Tambahan:
-                                                </h3>
-                                                <p className="text-blue-900 text-sm leading-relaxed">
-                                                    {faq.keterangan}
-                                                </p>
-                                            </div>
+                                            {/* Keterangan/Catatan - hanya tampilkan jika ada */}
+                                            {faq.keterangan && (
+                                                <div className="bg-blue-50 rounded-lg p-3">
+                                                    <h3 className="text-sm font-medium text-blue-600 mb-1">
+                                                        Catatan Tambahan:
+                                                    </h3>
+                                                    <p className="text-blue-900 text-sm leading-relaxed">
+                                                        {faq.keterangan}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))
@@ -276,6 +275,21 @@ const PeternakFAQPage = () => {
                     </div>
                 </main>
             </div>
+
+            {/* Footer */}
+            <Footer />
+
+            {/* Notification */}
+            {notification.isVisible && (
+                <Notification
+                    type={notification.type}
+                    title={notification.title}
+                    message={notification.message}
+                    onClose={hideNotification}
+                    autoClose={notification.autoClose}
+                    duration={notification.duration}
+                />
+            )}
         </div>
     );
 };

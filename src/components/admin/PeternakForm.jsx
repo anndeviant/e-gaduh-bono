@@ -8,10 +8,10 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
         alamat: '',
         nomorTelepon: '',
         jenisKelamin: '',
-        statusSiklus: 'Mulai', // Default Mulai
-        tanggalDaftar: new Date().toISOString().split('T')[0], // Default hari ini
-        jumlahTernakAwal: 5, // Default 5 kambing
-        targetPengembalian: 6, // Default 6 kambing untuk pengembalian
+        statusSiklus: 'Mulai',
+        tanggalDaftar: new Date().toISOString().split('T')[0],
+        jumlahTernakAwal: 5,
+        targetPengembalian: 6,
     });
 
     const statusSiklusOptions = [
@@ -46,14 +46,10 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-
-        // Validasi basic sebelum submit
         if (!formData.namaLengkap || !formData.nik || !formData.alamat || !formData.nomorTelepon || !formData.jenisKelamin || !formData.statusSiklus) {
             alert('Mohon lengkapi semua field yang wajib diisi');
             return;
         }
-
-        console.log('Form Data being submitted:', formData);
         onSave(formData);
     };
 
@@ -66,7 +62,8 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
         <div className="bg-white rounded-lg shadow p-4 sm:p-6 animate-in fade-in duration-300">
             <form onSubmit={handleSubmit}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Nama Lengkap */}
+                    {/* Nama Lengkap, NIK, Nomor Telepon, Jenis Kelamin, Alamat */}
+                    {/* ... (tidak ada perubahan pada bagian ini) ... */}
                     <div>
                         <label htmlFor="namaLengkap" className="block text-sm font-medium text-gray-700">Nama Lengkap</label>
                         <input
@@ -79,7 +76,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* NIK */}
                     <div>
                         <label htmlFor="nik" className="block text-sm font-medium text-gray-700">NIK</label>
                         <input
@@ -92,7 +88,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* Nomor Telepon */}
                     <div>
                         <label htmlFor="nomorTelepon" className="block text-sm font-medium text-gray-700">Nomor Telepon</label>
                         <input
@@ -105,7 +100,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* Jenis Kelamin */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Kelamin</label>
                         <SearchableDropdown
@@ -117,7 +111,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             displayKey="label"
                         />
                     </div>
-                    {/* Alamat */}
                     <div className="md:col-span-2">
                         <label htmlFor="alamat" className="block text-sm font-medium text-gray-700">Alamat</label>
                         <textarea
@@ -130,7 +123,7 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         ></textarea>
                     </div>
-                    {/* Status Siklus */}
+                    {/* Status Siklus, Tanggal Daftar, Jumlah Ternak Awal, Wajib Pengembalian */}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Status Siklus</label>
                         <SearchableDropdown
@@ -142,7 +135,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             displayKey="label"
                         />
                     </div>
-                    {/* Tanggal Daftar */}
                     <div>
                         <label htmlFor="tanggalDaftar" className="block text-sm font-medium text-gray-700">Tanggal Daftar</label>
                         <input
@@ -155,7 +147,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* Jumlah Ternak Awal */}
                     <div>
                         <label htmlFor="jumlahTernakAwal" className="block text-sm font-medium text-gray-700">Jumlah Kambing Awal</label>
                         <input
@@ -169,7 +160,6 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                             required
                         />
                     </div>
-                    {/* Wajib Pengembalian */}
                     <div>
                         <label htmlFor="targetPengembalian" className="block text-sm font-medium text-gray-700">Wajib Pengembalian</label>
                         <input
@@ -184,19 +174,11 @@ const PeternakForm = ({ initialData, onSave, onCancel }) => {
                         />
                     </div>
                 </div>
-
                 <div className="flex flex-col-reverse sm:flex-row sm:space-x-3 pt-4 space-y-2 space-y-reverse sm:space-y-0 mt-8">
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="flex-1 justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
+                    <button type="button" onClick={onCancel} className="flex-1 justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                         Batal
                     </button>
-                    <button
-                        type="submit"
-                        className="flex-1 justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                    >
+                    <button type="submit" className="flex-1 justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                         Simpan
                     </button>
                 </div>

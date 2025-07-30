@@ -1,4 +1,5 @@
 import { Calendar, AlertCircle, CheckCircle, Info, User } from 'lucide-react';
+import { getFieldValue } from '../../utils/dataUtils';
 
 const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
     const getBadgeColor = (type, value) => {
@@ -29,13 +30,27 @@ const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
         return peternak ? peternak.namaLengkap : 'Peternak tidak ditemukan';
     };
 
+    // Sort laporan berdasarkan nama peternak, kemudian reportNumber ascending untuk menunjukkan urutan berkesinambungan
+    const sortedLaporan = [...laporan].sort((a, b) => {
+        const nameA = getPeternakName(a.idPeternak);
+        const nameB = getPeternakName(b.idPeternak);
+
+        // Jika nama peternak sama, sort berdasarkan reportNumber ascending
+        if (nameA === nameB) {
+            return a.reportNumber - b.reportNumber;
+        }
+
+        // Jika nama peternak berbeda, sort berdasarkan nama
+        return nameA.localeCompare(nameB);
+    });
+
     if (!laporan || laporan.length === 0) {
         return (
             <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="text-center py-12">
                     <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">Belum ada laporan</h3>
-                    <p className="text-gray-500">Laporan triwulan dari semua peternak akan ditampilkan di sini</p>
+                    <p className="text-gray-500">Laporan dari semua peternak akan ditampilkan di sini</p>
                 </div>
             </div>
         );
@@ -82,7 +97,7 @@ const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                        {laporan.map((item) => {
+                        {sortedLaporan.map((item) => {
                             const dateInfo = formatDate(item.tanggalLaporan);
                             return (
                                 <tr key={item.id} className="hover:bg-gray-50 transition-colors">
@@ -102,7 +117,7 @@ const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
                                             <Calendar className="h-4 w-4 text-blue-500 mr-2 flex-shrink-0" />
                                             <div>
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    Triwulan {item.quarter || item.quarterNumber || item.triwulan}
+                                                    Laporan ke-{item.reportNumber || item.quarter || item.quarterNumber || item.triwulan}
                                                 </div>
                                                 <div className="text-sm text-gray-500">
                                                     {item.year || item.quarterInfo?.year || item.tahun}
@@ -114,35 +129,35 @@ const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
                                     {/* Jumlah Awal */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <div className="inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full text-sm font-medium text-gray-900">
-                                            {item.jumlahTernakAwal || item.jumlah_awal || 0}
+                                            {getFieldValue(item, 'jumlahTernakAwal', 0)}
                                         </div>
                                     </td>
 
                                     {/* Lahir */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor('lahir')}`}>
-                                            +{item.jumlahLahir || item.jumlah_lahir || 0}
+                                            +{getFieldValue(item, 'jumlahLahir', 0)}
                                         </span>
                                     </td>
 
                                     {/* Mati */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor('mati')}`}>
-                                            -{item.jumlahKematian || item.jumlah_mati || 0}
+                                            -{getFieldValue(item, 'jumlahKematian', 0)}
                                         </span>
                                     </td>
 
                                     {/* Terjual */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getBadgeColor('terjual')}`}>
-                                            -{item.jumlahTerjual || item.jumlah_dijual || 0}
+                                            -{getFieldValue(item, 'jumlahTerjual', 0)}
                                         </span>
                                     </td>
 
                                     {/* Total Akhir */}
                                     <td className="px-4 sm:px-6 py-4 whitespace-nowrap text-left">
                                         <span className={`text-sm ${getBadgeColor('total')}`}>
-                                            {item.jumlahTernakSaatIni || item.jumlah_saat_ini || 0} ekor
+                                            {getFieldValue(item, 'jumlahTernakSaatIni', 0)} ekor
                                         </span>
                                     </td>
 
@@ -160,13 +175,13 @@ const AllLaporanTable = ({ laporan, peternakData, className = "" }) => {
                         })}
 
                         {/* Detail Informasi untuk setiap laporan (Kendala, Solusi, Keterangan) */}
-                        {laporan.map((item) =>
+                        {sortedLaporan.map((item) =>
                             (item.kendala || item.solusi || item.keterangan || item.catatan) && (
                                 <tr key={`${item.id}-details`} className="bg-gray-50 border-t-0">
                                     <td colSpan="8" className="px-4 sm:px-6 py-4">
                                         <div className="space-y-3">
                                             <div className="text-xs font-medium text-gray-700 border-b border-gray-200 pb-2">
-                                                Detail Laporan {getPeternakName(item.idPeternak)} - Triwulan {item.quarter || item.quarterNumber || item.triwulan} {item.year || item.quarterInfo?.year || item.tahun}
+                                                Detail Laporan {getPeternakName(item.idPeternak)} - Laporan ke-{item.reportNumber || item.quarter || item.quarterNumber || item.triwulan} {item.year || item.quarterInfo?.year || item.tahun}
                                             </div>
 
                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 text-sm">

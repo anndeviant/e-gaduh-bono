@@ -7,7 +7,6 @@ import PeternakManagement from "./pages/admin/PeternakManagement";
 import LaporanPeternak from "./pages/admin/LaporanPeternak";
 import PeternakTransparencyPage from "./pages/peternak/TransparencyPage";
 import PeternakFAQPage from "./pages/peternak/PeternakFAQPage";
-import NotificationTestPage from "./pages/NotificationTestPage";
 import ProtectedRoute from "./utils/ProtectedRoute";
 
 function App() {
@@ -22,9 +21,6 @@ function App() {
           element={<PeternakTransparencyPage />}
         />
         <Route path="/peternak/faq" element={<PeternakFAQPage />} />
-
-        {/* Development Test Routes */}
-        <Route path="/test/notifications" element={<NotificationTestPage />} />
 
         {/* Protected Admin Routes */}
         <Route

@@ -1,13 +1,30 @@
 import { useState, useEffect } from 'react';
-import { FileText, AlertCircle, CheckCircle, Info, TrendingUp } from 'lucide-react';
-import {
-    getNextAllowedQuarter,
-    calculatePrefillData
-} from '../../services/laporanService';
-import { useLaporanNotification } from '../../hooks/useLaporanNotification';
-import NotificationToast from '../common/NotificationToast';
+import { CheckCircle, Info, AlertCircle, TrendingUp, FileText } from 'lucide-react';
+import { getLaporanByPeternak } from '../../services/laporanService';
+import { getFieldValue, validateNumericField } from '../../utils/dataUtils';
+import useNotification from '../../hooks/useNotification';
+import Notification from '../common/Notification';
 
-const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCancel, triwulan }) => {
+/**
+ * LaporanForm Component
+ * 
+ * Komponen form untuk membuat atau mengedit laporan peternak.
+ * 
+ * Fitur Utama:
+ * - Sistem berkesinambungan: jumlah ternak awal laporan berikutnya diambil dari jumlah ternak saat ini laporan sebelumnya
+ * - Validasi maksimal 8 laporan (2 tahun program gaduhan)
+ * - Auto-calculate jumlah ternak saat ini berdasarkan formula: awal + lahir - mati - dijual
+ * - Validasi duplikasi laporan ke-N
+ * - Form responsif dengan notifikasi
+ * 
+ * Flow Data Berkesinambungan:
+ * 1. Laporan ke-1: jumlah awal = data registrasi peternak
+ * 2. Laporan ke-2: jumlah awal = jumlah saat ini dari Laporan ke-1
+ * 3. Laporan ke-3: jumlah awal = jumlah saat ini dari Laporan ke-2
+ * ... dst sampai maksimal Laporan ke-8
+ */
+
+const LaporanForm = ({ laporan, peternakId, peternakData, onSave, onCancel }) => {
     const [formData, setFormData] = useState({
         jumlah_awal: '',
         jumlah_lahir: '',
@@ -20,126 +37,127 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
         tanggal_laporan: new Date().toISOString().split('T')[0] // Default hari ini
     });
 
-    const [quarterInfo, setQuarterInfo] = useState(null);
+    const [reportInfo, setReportInfo] = useState(null);
     const [prefillInfo, setPrefillInfo] = useState(null);
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
     const [canCreateReport, setCanCreateReport] = useState(false);
+    const [cannotCreateReason, setCannotCreateReason] = useState('');
 
     // Notification hook
     const {
         notification,
-        clearNotification,
-        notifyCreateSuccess,
-        notifyCreateError,
-        notifyUpdateSuccess,
-        notifyUpdateError,
-        notifyValidationError,
-        notifyActionConfirm
-    } = useLaporanNotification();
+        showSuccess,
+        showError,
+        showWarning,
+        showInfo,
+        hideNotification
+    } = useNotification();
 
     useEffect(() => {
-        const loadQuarterInfo = async () => {
+        const loadReportInfo = async () => {
             try {
                 if (!laporan) {
-                    // Mode tambah laporan baru
-                    // Gunakan data peternak yang dikirim dari parent untuk development
+                    // Mode tambah laporan baru - dengan kontinuitas data
                     if (peternakData) {
-                        // Mode development - simulasi dengan data peternak yang ada
-                        const mockExistingReports = []; // Kosong untuk simulasi peternak baru
-                        let nextQuarter = triwulan + 1;
-
-                        // Validasi maksimal 8 triwulan
-                        if (nextQuarter > 8) {
+                        // Cek status peternak terlebih dahulu
+                        if (peternakData.statusSiklus === "Selesai") {
                             setCanCreateReport(false);
+                            setCannotCreateReason('Program peternak ini sudah selesai.');
                             setInitialLoading(false);
                             return;
                         }
 
-                        const quarterInfo = {
-                            quarter: nextQuarter,
-                            year: new Date().getFullYear(),
-                            startDate: peternakData.tanggalDaftar || new Date().toISOString().split('T')[0],
-                            endDate: new Date().toISOString().split('T')[0],
-                            displayPeriod: `Triwulan ${nextQuarter} ${new Date().getFullYear()}`
+                        // Ambil semua laporan peternak ini untuk menentukan laporan berikutnya
+                        const existingLaporan = await getLaporanByPeternak(peternakId);
+                        let nextReportNumber = 1;
+                        let jumlahTernakAwal = peternakData.jumlahTernakAwal || 5; // Default dari data peternak
+                        let latestLaporan = null;
+
+                        if (existingLaporan && existingLaporan.length > 0) {
+                            // Validasi maksimal 8 laporan
+                            if (existingLaporan.length >= 8) {
+                                setCanCreateReport(false);
+                                setCannotCreateReason('Program peternak ini sudah selesai (maksimal 8 laporan tercapai). Program gaduhan berlangsung maksimal 2 tahun (8 laporan).');
+                                setInitialLoading(false);
+                                return;
+                            }
+
+                            // Sort laporan berdasarkan reportNumber untuk mendapatkan yang terbaru
+                            const sortedLaporan = existingLaporan.sort((a, b) => {
+                                return b.reportNumber - a.reportNumber; // Report number descending
+                            });
+
+                            latestLaporan = sortedLaporan[0];
+
+                            // Tentukan nomor laporan berikutnya
+                            nextReportNumber = latestLaporan.reportNumber + 1;
+
+                            // Ambil jumlah ternak saat ini dari laporan terakhir sebagai jumlah awal untuk laporan berikutnya
+                            jumlahTernakAwal = latestLaporan.jumlahTernakSaatIni || latestLaporan.jumlah_saat_ini || peternakData.jumlahTernakAwal || 5;
+                        }
+
+                        const reportInfo = {
+                            reportNumber: nextReportNumber,
+                            displayPeriod: `Laporan ke-${nextReportNumber}`
                         };
 
-                        setQuarterInfo({
-                            quarterNumber: nextQuarter,
-                            quarterInfo: quarterInfo,
-                            canCreate: true,
-                            existingReports: mockExistingReports
+                        setReportInfo({
+                            reportNumber: nextReportNumber,
+                            reportInfo: reportInfo,
+                            canCreate: true
                         });
                         setCanCreateReport(true);
 
-                        // Calculate prefill data
+                        // Data awal dengan kontinuitas
                         const prefill = {
-                            jumlah_awal: peternakData.jumlahTernakAwal || 5,
-                            jumlah_saat_ini: peternakData.jumlahTernakAwal || 5
+                            jumlah_awal: jumlahTernakAwal,
+                            jumlah_saat_ini: jumlahTernakAwal,
+                            fromPreviousReport: latestLaporan ? true : false,
+                            previousReportNumber: latestLaporan ? latestLaporan.reportNumber : null
                         };
                         setPrefillInfo(prefill);
 
                         setFormData(prev => ({
                             ...prev,
-                            jumlah_awal: prefill.jumlah_awal.toString(),
-                            jumlah_saat_ini: prefill.jumlah_awal.toString(),
+                            jumlah_awal: jumlahTernakAwal.toString(),
+                            jumlah_saat_ini: jumlahTernakAwal.toString(),
                             tanggal_laporan: new Date().toISOString().split('T')[0]
                         }));
-
                     } else {
-                        // Fallback ke service asli jika tidak ada data peternak
-                        const nextQuarterInfo = await getNextAllowedQuarter(peternakId);
-
-                        if (!nextQuarterInfo || !nextQuarterInfo.canCreate) {
-                            setCanCreateReport(false);
-                            setInitialLoading(false);
-                            return;
-                        }
-
-                        setQuarterInfo(nextQuarterInfo);
-                        setCanCreateReport(true);
-
-                        // Calculate prefill data
-                        const lastReport = nextQuarterInfo.existingReports.length > 0
-                            ? nextQuarterInfo.existingReports[nextQuarterInfo.existingReports.length - 1]
-                            : null;
-
-                        const prefill = calculatePrefillData(lastReport);
-                        setPrefillInfo(prefill);
-
-                        setFormData(prev => ({
-                            ...prev,
-                            jumlah_awal: prefill.jumlah_awal.toString(),
-                            jumlah_saat_ini: prefill.jumlah_awal.toString(),
-                            tanggal_laporan: new Date().toISOString().split('T')[0]
-                        }));
+                        setCanCreateReport(false);
+                        setInitialLoading(false);
+                        return;
                     }
 
                 } else {
                     // Mode edit laporan existing
                     setCanCreateReport(true);
                     setFormData({
-                        jumlah_awal: laporan.jumlahTernakAwal?.toString() || laporan.jumlah_awal?.toString() || '',
-                        jumlah_lahir: laporan.jumlahLahir?.toString() || laporan.jumlah_lahir?.toString() || '',
-                        jumlah_mati: laporan.jumlahKematian?.toString() || laporan.jumlah_mati?.toString() || '',
-                        jumlah_dijual: laporan.jumlahTerjual?.toString() || laporan.jumlah_dijual?.toString() || '',
-                        jumlah_saat_ini: laporan.jumlahTernakSaatIni?.toString() || laporan.jumlah_saat_ini?.toString() || '',
+                        jumlah_awal: getFieldValue(laporan, 'jumlahTernakAwal', '').toString(),
+                        jumlah_lahir: getFieldValue(laporan, 'jumlahLahir', '').toString(),
+                        jumlah_mati: getFieldValue(laporan, 'jumlahKematian', '').toString(),
+                        jumlah_dijual: getFieldValue(laporan, 'jumlahTerjual', '').toString(),
+                        jumlah_saat_ini: getFieldValue(laporan, 'jumlahTernakSaatIni', '').toString(),
                         kendala: laporan.kendala || '',
                         solusi: laporan.solusi || '',
                         keterangan: laporan.catatan || laporan.keterangan || '',
                         tanggal_laporan: laporan.tanggalLaporan || new Date().toISOString().split('T')[0]
                     });
 
-                    // Set quarter info dari laporan yang sedang diedit
-                    setQuarterInfo({
-                        quarterNumber: laporan.quarterNumber,
-                        quarterInfo: laporan.quarterInfo
+                    // Set report info dari laporan yang sedang diedit
+                    setReportInfo({
+                        reportNumber: laporan.reportNumber,
+                        reportInfo: laporan.reportInfo || {
+                            reportNumber: laporan.reportNumber,
+                            displayPeriod: laporan.displayPeriod || `Laporan ke-${laporan.reportNumber}`
+                        }
                     });
                 }
 
             } catch (error) {
-                console.error('Error loading quarter info:', error);
+                console.error('Error loading report info:', error);
                 setCanCreateReport(false);
             } finally {
                 setInitialLoading(false);
@@ -147,11 +165,9 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
         };
 
         if (peternakId) {
-            loadQuarterInfo();
+            loadReportInfo();
         }
-    }, [peternakId, laporan, peternakData]);
-
-    // Auto calculate jumlah_saat_ini when other values change
+    }, [peternakId, laporan, peternakData]);    // Auto calculate jumlah_saat_ini when other values change
     useEffect(() => {
         if (!formData.jumlah_awal) return;
 
@@ -170,38 +186,44 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
     const validateForm = () => {
         const newErrors = {};
 
-        // Validasi jumlah
+        // Validasi jumlah dengan helper function
+        const jumlahAwal = validateNumericField(formData.jumlah_awal);
+        const jumlahLahir = validateNumericField(formData.jumlah_lahir);
+        const jumlahMati = validateNumericField(formData.jumlah_mati);
+        const jumlahDijual = validateNumericField(formData.jumlah_dijual);
+
         if (!formData.jumlah_awal.trim()) {
             newErrors.jumlah_awal = 'Jumlah awal harus diisi';
-        } else if (isNaN(formData.jumlah_awal) || parseInt(formData.jumlah_awal) < 0) {
+        } else if (jumlahAwal < 0) {
             newErrors.jumlah_awal = 'Jumlah awal harus berupa angka positif';
         }
 
         if (!formData.jumlah_lahir.trim()) {
             newErrors.jumlah_lahir = 'Jumlah lahir harus diisi (minimal 0)';
-        } else if (isNaN(formData.jumlah_lahir) || parseInt(formData.jumlah_lahir) < 0) {
+        } else if (jumlahLahir < 0) {
             newErrors.jumlah_lahir = 'Jumlah lahir harus berupa angka positif atau 0';
         }
 
         if (!formData.jumlah_mati.trim()) {
             newErrors.jumlah_mati = 'Jumlah mati harus diisi (minimal 0)';
-        } else if (isNaN(formData.jumlah_mati) || parseInt(formData.jumlah_mati) < 0) {
+        } else if (jumlahMati < 0) {
             newErrors.jumlah_mati = 'Jumlah mati harus berupa angka positif atau 0';
         }
 
         if (!formData.jumlah_dijual.trim()) {
             newErrors.jumlah_dijual = 'Jumlah dijual harus diisi (minimal 0)';
-        } else if (isNaN(formData.jumlah_dijual) || parseInt(formData.jumlah_dijual) < 0) {
+        } else if (jumlahDijual < 0) {
             newErrors.jumlah_dijual = 'Jumlah dijual harus berupa angka positif atau 0';
         }
 
         // Validasi logika bisnis
         const awal = parseInt(formData.jumlah_awal) || 0;
+        const lahir = parseInt(formData.jumlah_lahir) || 0;
         const mati = parseInt(formData.jumlah_mati) || 0;
         const dijual = parseInt(formData.jumlah_dijual) || 0;
 
-        if ((mati + dijual) > awal) {
-            newErrors.logika = 'Total kambing yang mati dan dijual tidak boleh melebihi jumlah awal';
+        if ((mati + dijual) > (awal + lahir)) {
+            newErrors.logika = 'Total kambing yang mati dan dijual tidak boleh melebihi jumlah awal + lahir';
         }
 
         // Validasi tanggal laporan
@@ -220,7 +242,7 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
         // Show validation notification if there are errors
         if (Object.keys(newErrors).length > 0) {
             const firstError = Object.values(newErrors)[0];
-            notifyValidationError(firstError);
+            showWarning('Data Tidak Valid', firstError);
         }
 
         return Object.keys(newErrors).length === 0;
@@ -245,19 +267,15 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
         try {
             // Show processing notification
             const action = laporan ? 'Memperbarui' : 'Menyimpan';
-            notifyActionConfirm(action, peternakData?.namaLengkap || 'peternak ini');
+            showInfo('Memproses...', `${action} laporan untuk ${peternakData?.namaLengkap || 'peternak ini'}`);
 
             // Hanya kirim field yang dibutuhkan Firestore
             const dataToSave = {
                 idPeternak: peternakId,
-                quarter: quarterInfo?.quarterNumber || quarterInfo?.quarter || 1,
-                year: quarterInfo?.quarterInfo?.year || new Date().getFullYear(),
-                startDate: quarterInfo?.quarterInfo?.startDate || new Date().toISOString().split('T')[0],
-                endDate: quarterInfo?.quarterInfo?.endDate || new Date().toISOString().split('T')[0],
-                displayPeriod: quarterInfo?.quarterInfo?.displayPeriod || `Triwulan ${quarterInfo?.quarterNumber || 1} ${quarterInfo?.quarterInfo?.year || new Date().getFullYear()}`,
+                reportNumber: reportInfo?.reportNumber || reportInfo?.reportInfo?.reportNumber || 1,
+                displayPeriod: reportInfo?.reportInfo?.displayPeriod || `Laporan ke-${reportInfo?.reportNumber || 1}`,
                 jumlahTernakAwal: parseInt(formData.jumlah_awal) || 0,
                 jumlahTernakSaatIni: parseInt(formData.jumlah_saat_ini) || 0,
-                targetPengembalian: peternakData?.targetPengembalian || 0,
                 jumlahKematian: parseInt(formData.jumlah_mati) || 0,
                 jumlahLahir: parseInt(formData.jumlah_lahir) || 0,
                 jumlahTerjual: parseInt(formData.jumlah_dijual) || 0,
@@ -275,19 +293,17 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                     id: laporan.id,
                     ...dataToSave
                 };
-                notifyUpdateSuccess(
-                    peternakData?.namaLengkap || 'Peternak',
-                    dataToSave.quarter,
-                    dataToSave.year
+                showSuccess(
+                    'Laporan Berhasil Diperbarui!',
+                    `Laporan ke-${dataToSave.reportNumber} untuk ${peternakData?.namaLengkap || 'Peternak'} telah diperbarui.`
                 );
             } else {
                 // Untuk create, langsung return data yang akan dibuat tanpa memanggil createLaporan
                 // Biarkan parent component yang menangani actual create
                 result = dataToSave;
-                notifyCreateSuccess(
-                    peternakData?.namaLengkap || 'Peternak',
-                    dataToSave.quarter,
-                    dataToSave.year
+                showSuccess(
+                    'Laporan Berhasil Dibuat!',
+                    `Laporan ke-${dataToSave.reportNumber} untuk ${peternakData?.namaLengkap || 'Peternak'} telah tersimpan.`
                 );
             }
 
@@ -296,9 +312,9 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
             console.error('Error saving laporan:', error);
 
             if (laporan) {
-                notifyUpdateError(error.message);
+                showError('Gagal Memperbarui Laporan', 'Terjadi kesalahan saat memperbarui laporan. Silakan coba lagi.');
             } else {
-                notifyCreateError(error.message);
+                showError('Gagal Membuat Laporan', 'Terjadi kesalahan saat membuat laporan. Silakan coba lagi.');
             }
 
             setErrors({ submit: error.message });
@@ -325,7 +341,7 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                     <AlertCircle className="mx-auto h-12 w-12 text-red-500 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 mb-2">Tidak Dapat Membuat Laporan</h3>
                     <p className="text-gray-600 mb-4">
-                        Program peternak ini mungkin sudah selesai atau terdapat masalah dalam data.
+                        {cannotCreateReason || 'Program peternak ini sudah selesai (maksimal 8 laporan) atau terdapat masalah dalam data. Program gaduhan berlangsung maksimal 2 tahun (8 laporan).'}
                     </p>
                     <button
                         onClick={onCancel}
@@ -341,24 +357,33 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
     return (
         <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md">
             {/* Header Info */}
-            {quarterInfo && (
+            {reportInfo && (
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-start">
                         <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
                         <div className="flex-1">
                             <h4 className="text-sm font-medium text-blue-900 mb-1">
-                                {laporan ? 'Mengedit' : 'Membuat'} Laporan Triwulan {quarterInfo.quarterNumber}
+                                {laporan ? 'Mengedit' : 'Membuat'} Laporan ke-{reportInfo.reportNumber}
                             </h4>
-                            {quarterInfo.quarterInfo && (
+                            {reportInfo.reportInfo && (
                                 <p className="text-sm text-blue-700">
-                                    Periode: {quarterInfo.quarterInfo.displayPeriod}
+                                    Periode: {reportInfo.reportInfo.displayPeriod}
                                 </p>
                             )}
                             {prefillInfo && (
-                                <p className="text-sm text-blue-700 mt-1">
-                                    <TrendingUp className="h-4 w-4 inline mr-1" />
-                                    Jumlah awal otomatis diisi berdasarkan laporan sebelumnya: {prefillInfo.jumlah_awal} kambing
-                                </p>
+                                <div className="mt-2">
+                                    {prefillInfo.fromPreviousReport ? (
+                                        <p className="text-sm text-blue-700">
+                                            <TrendingUp className="h-4 w-4 inline mr-1" />
+                                            Jumlah awal otomatis diambil dari Laporan ke-{prefillInfo.previousReportNumber}: {prefillInfo.jumlah_awal} kambing
+                                        </p>
+                                    ) : (
+                                        <p className="text-sm text-blue-700">
+                                            <TrendingUp className="h-4 w-4 inline mr-1" />
+                                            Laporan pertama - jumlah awal berdasarkan data registrasi peternak: {prefillInfo.jumlah_awal} kambing
+                                        </p>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
@@ -388,31 +413,32 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
 
                 {/* Data Ternak */}
                 <div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-4">Data Kambing Triwulan Ini</h4>
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Data Kambing Laporan Ini</h4>
 
-                    {/* Tanggal Laporan */}
-                    <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Tanggal Laporan Pertemuan *
-                        </label>
-                        <input
-                            type="date"
-                            name="tanggal_laporan"
-                            value={formData.tanggal_laporan}
-                            onChange={handleChange}
-                            max={new Date().toISOString().split('T')[0]} // Tidak boleh pilih tanggal masa depan
-                            className={`block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${errors.tanggal_laporan
+                    {/* Grid Layout 3 Kolom 2 Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+                        {/* Row 1 - Tanggal Laporan, Jumlah Awal, Jumlah Lahir */}
+
+                        {/* Tanggal Laporan */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Tanggal Laporan Pertemuan *
+                            </label>
+                            <input
+                                type="date"
+                                name="tanggal_laporan"
+                                value={formData.tanggal_laporan}
+                                onChange={handleChange}
+                                max={new Date().toISOString().split('T')[0]} // Tidak boleh pilih tanggal masa depan
+                                className={`block w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 ${errors.tanggal_laporan
                                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
                                     : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
-                                }`}
-                        />
-                        <p className="mt-1 text-xs text-blue-600">
-                            Tanggal saat pertemuan dilakukan untuk pencatatan laporan triwulan ini
-                        </p>
-                        {errors.tanggal_laporan && <p className="mt-1 text-sm text-red-600">{errors.tanggal_laporan}</p>}
-                    </div>
+                                    }`}
+                            />
+                            {errors.tanggal_laporan && <p className="mt-1 text-sm text-red-600">{errors.tanggal_laporan}</p>}
+                        </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Jumlah Awal */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -435,7 +461,10 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                             />
                             {(!laporan && prefillInfo) && (
                                 <p className="mt-1 text-xs text-gray-500">
-                                    Otomatis dari laporan sebelumnya
+                                    {prefillInfo.fromPreviousReport
+                                        ? `Dari Laporan ke-${prefillInfo.previousReportNumber}`
+                                        : 'Dari data registrasi peternak'
+                                    }
                                 </p>
                             )}
                             {errors.jumlah_awal && <p className="mt-1 text-sm text-red-600">{errors.jumlah_awal}</p>}
@@ -458,6 +487,8 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                             />
                             {errors.jumlah_lahir && <p className="mt-1 text-sm text-red-600">{errors.jumlah_lahir}</p>}
                         </div>
+
+                        {/* Row 2 - Jumlah Mati, Jumlah Dijual, Jumlah Saat Ini */}
 
                         {/* Jumlah Mati */}
                         <div>
@@ -496,7 +527,7 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                         </div>
 
                         {/* Jumlah Saat Ini */}
-                        <div className="sm:col-span-2 lg:col-span-1">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Jumlah Saat Ini
                             </label>
@@ -593,15 +624,18 @@ const LaporanTriwulanForm = ({ laporan, peternakId, peternakData, onSave, onCanc
                 </div>
             </form>
 
-            {/* Notification Toast */}
-            <NotificationToast
-                notification={notification}
-                onClose={clearNotification}
-                position="top-right"
-                autoHideDuration={5000}
+            {/* Notification Component */}
+            <Notification
+                type={notification.type}
+                title={notification.title}
+                message={notification.message}
+                isVisible={notification.isVisible}
+                onClose={hideNotification}
+                autoClose={notification.autoClose}
+                duration={notification.duration}
             />
         </div>
     );
 };
 
-export default LaporanTriwulanForm;
+export default LaporanForm;

@@ -13,8 +13,11 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
 
+    // Menentukan apakah mode "edit" atau "tambah"
+    const isEditMode = !!admin;
+
     useEffect(() => {
-        if (admin) {
+        if (isEditMode) {
             setFormData({
                 fullName: admin.fullName || '',
                 email: admin.email || '',
@@ -23,7 +26,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                 role: admin.role || 'Admin'
             });
         } else {
-            // Reset form for new admin
+            // Reset form untuk admin baru
             setFormData({
                 fullName: '',
                 email: '',
@@ -32,7 +35,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                 role: 'Admin'
             });
         }
-    }, [admin]);
+    }, [admin, isEditMode]);
 
     const validateForm = () => {
         const newErrors = {};
@@ -44,14 +47,19 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
             newErrors.email = 'Format email tidak valid';
         }
-        if (!admin && !formData.password) {
+
+        // Password wajib diisi hanya saat menambah admin baru
+        if (!isEditMode && !formData.password) {
             newErrors.password = 'Password harus diisi';
         } else if (formData.password && formData.password.length < 6) {
             newErrors.password = 'Password minimal 6 karakter';
         }
+
+        // Konfirmasi password hanya divalidasi jika password diisi
         if (formData.password && formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = 'Password tidak sama';
         }
+
         if (!formData.role) newErrors.role = 'Role harus dipilih';
 
         setErrors(newErrors);
@@ -77,7 +85,6 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
             const { confirmPassword, ...dataToSave } = formData;
-            // Tambahkan status "Aktif" otomatis saat submit
             dataToSave.status = 'Aktif';
             onSave(dataToSave);
         } catch (error) {
@@ -127,6 +134,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                 placeholder="Masukkan email"
                             />
                         </div>
+                        {isEditMode && <p className="mt-1 text-xs text-gray-500">Email untuk login.</p>}
                         {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
                     </div>
                     <div>
@@ -141,8 +149,9 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                             valueKey="value"
                             searchKeys={['label', 'subtitle']}
                             noResultsText="Role tidak ditemukan"
-                            disabled={true}
+                            disabled={isEditMode} // Dinonaktifkan saat mode edit
                         />
+                        {isEditMode && <p className="mt-1 text-xs text-gray-500">Role tidak dapat diubah setelah dibuat.</p>}
                         {errors.role && <p className="mt-1 text-sm text-red-600">{errors.role}</p>}
                     </div>
                 </div>
@@ -150,7 +159,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                 {/* Password & Confirm Password */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Password {!admin && '*'}</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Password {!isEditMode && '*'}</label>
                         <div className="relative">
                             <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                             <input
@@ -159,7 +168,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                 value={formData.password}
                                 onChange={handleChange}
                                 className={`block w-full pl-10 pr-3 py-1.5 border rounded-md shadow-sm focus:outline-none focus:ring-1 ${errors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-green-500 focus:border-green-500'}`}
-                                placeholder={admin ? "Kosongkan jika tidak diubah" : "Masukkan password"}
+                                placeholder={isEditMode ? "Kosongkan jika tidak diubah" : "Masukkan password"}
                             />
                         </div>
                         {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
@@ -203,7 +212,7 @@ const AdminForm = ({ admin, onSave, onCancel, currentUserRole }) => {
                                 Menyimpan...
                             </div>
                         ) : (
-                            admin ? 'Update Admin' : 'Simpan Admin'
+                            isEditMode ? 'Update Admin' : 'Simpan Admin'
                         )}
                     </button>
                 </div>

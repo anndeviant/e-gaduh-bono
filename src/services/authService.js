@@ -39,7 +39,6 @@ const login = async (email, password) => {
       }
     } catch (firebaseError) {
       // Jika Firebase Auth gagal, coba login collection-based (untuk Admin biasa)
-      console.log("Firebase Auth failed, trying collection-based auth");
     }
 
     // Kedua, coba login dengan collection "users" (untuk Admin biasa)
